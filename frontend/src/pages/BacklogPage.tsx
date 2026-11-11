@@ -3,9 +3,10 @@ import { useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../lib/api';
 import { useProjectAccess } from '../lib/projectAccess';
 import { useProjectRealtime } from '../lib/realtime';
-import { Permission, SprintState, StatusCategory, type Paginated, type Sprint, type Task } from '../lib/types';
+import { Permission, SprintState, StatusCategory, TaskType, type Paginated, type Sprint, type Task } from '../lib/types';
 import { Spinner, ErrorBanner, EmptyState } from '../components/Feedback';
 import { Avatar } from '../components/Avatar';
+import { EpicChip } from '../components/EpicChip';
 import { TaskDrawer } from '../components/TaskDrawer';
 import { CreateTaskModal } from '../components/CreateTaskModal';
 import { CreateSprintModal, StartSprintModal, CompleteSprintModal } from '../components/SprintModals';
@@ -57,7 +58,10 @@ export function BacklogPage() {
             .get<Paginated<Task>>(`/projects/${project.id}/tasks`, { backlog: true, q: q || undefined, limit: 100 })
             .then((r) => ['backlog', r.items] as const),
         ]);
-        setTasksByGroup(Object.fromEntries(entries));
+        // Epics are managed on their own tab, not mixed into sprint/backlog rows.
+        setTasksByGroup(
+          Object.fromEntries(entries.map(([key, items]) => [key, items.filter((t) => t.type !== TaskType.EPIC)])),
+        );
       })
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Nu am putut încărca backlog-ul'));
   }, [project.id, q]);
@@ -263,6 +267,7 @@ function GroupSection({
                 {typeIcon(t.type)} {t.key}
               </span>
               <span style={{ fontSize: 13, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
+              <span>{t.epic && <EpicChip epic={t.epic} />}</span>
               <span style={{ display: 'flex', gap: 4 }}>
                 {t.labels.map((l) => (
                   <span key={l} className="chip-label">

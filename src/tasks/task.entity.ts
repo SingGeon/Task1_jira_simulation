@@ -6,6 +6,7 @@ import { WorkflowStatus } from '../workflow/workflow-status.entity';
 import { Sprint } from '../sprints/sprint.entity';
 
 export enum TaskType {
+  EPIC = 'EPIC',
   STORY = 'STORY',
   TASK = 'TASK',
   BUG = 'BUG',
@@ -81,4 +82,13 @@ export class Task extends BaseEntity {
   @ManyToOne(() => Sprint, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn()
   sprint: Sprint | null;
+
+  /** The epic this task belongs to. Epics themselves never have an epicId (can't nest). */
+  @Index()
+  @Column('uuid', { nullable: true })
+  epicId: string | null;
+
+  @ManyToOne(() => Task, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn()
+  epic: Task | null;
 }

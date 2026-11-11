@@ -259,6 +259,40 @@ describe('Task Tracker (e2e)', () => {
     expect(board.body.columns[0].tasks[0].key).toBe('OPS-1');
   });
 
+  it('epics group tasks, cannot nest or be sprinted, and never show up on the board', async () => {
+    const epic = await as('pm')
+      .post(`/api/projects/${projectId}/tasks`)
+      .send({ title: 'Launch v2', type: 'EPIC' })
+      .expect(201);
+    expect(epic.body.type).toBe('EPIC');
+    expect(epic.body.sprintId).toBeNull();
+
+    const sprints = await as('pm').get(`/api/projects/${projectId}/sprints`).expect(200);
+    await as('pm')
+      .post(`/api/projects/${projectId}/tasks`)
+      .send({ title: 'Another epic', type: 'EPIC', sprintId: sprints.body[0].id })
+      .expect(400);
+
+    const child = await as('pm')
+      .post(`/api/projects/${projectId}/tasks`)
+      .send({ title: 'Child of the epic', epicId: epic.body.id })
+      .expect(201);
+    expect(child.body.epic.id).toBe(epic.body.id);
+
+    const otherEpic = await as('pm').post(`/api/projects/${projectId}/tasks`).send({ title: 'Other epic', type: 'EPIC' }).expect(201);
+    await as('pm').patch(`/api/tasks/${otherEpic.body.key}`).send({ epicId: epic.body.id }).expect(400);
+
+    const epics = await as('pm').get(`/api/projects/${projectId}/epics`).expect(200);
+    const found = epics.body.find((e: any) => e.id === epic.body.id);
+    expect(found.taskCount).toBe(1);
+    expect(found.doneCount).toBe(0);
+    expect(found.status.category).toBeDefined(); // relation must be loaded for the UI to render a status pill
+
+    const board = await as('pm').get(`/api/projects/${projectId}/board`).expect(200);
+    const allBoardKeys = board.body.columns.flatMap((c: any) => c.tasks.map((t: any) => t.key));
+    expect(allBoardKeys).not.toContain(epic.body.key);
+  });
+
   // ---------------- extensibility ----------------
 
   it('a new role created by the admin works without code changes', async () => {

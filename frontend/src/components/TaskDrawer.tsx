@@ -9,6 +9,7 @@ import {
   TaskPriority,
   TaskType,
   type Comment,
+  type Epic,
   type Sprint,
   type Task,
   type User,
@@ -16,6 +17,7 @@ import {
 } from '../lib/types';
 import { Drawer } from './Drawer';
 import { Avatar } from './Avatar';
+import { EpicChip } from './EpicChip';
 import { Spinner, ErrorBanner } from './Feedback';
 import { UserPicker } from './UserPicker';
 import { categoryPillClass, formatDateTime, typeIcon } from '../lib/format';
@@ -35,6 +37,7 @@ export function TaskDrawer({
   const [transitions, setTransitions] = useState<WorkflowStatus[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [sprints, setSprints] = useState<Sprint[]>([]);
+  const [epics, setEpics] = useState<Epic[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [savingField, setSavingField] = useState<string | null>(null);
 
@@ -58,6 +61,7 @@ export function TaskDrawer({
     if (project.boardType === BoardType.SCRUM) {
       api.get<Sprint[]>(`/projects/${project.id}/sprints`).then(setSprints).catch(() => {});
     }
+    api.get<Epic[]>(`/projects/${project.id}/epics`).then(setEpics).catch(() => {});
   }, [project.id, project.boardType]);
 
   const patch = async (body: Partial<Task>, field: string) => {
@@ -135,7 +139,8 @@ export function TaskDrawer({
   const canAssign = task ? can(Permission.TASK_ASSIGN) : false;
   const canTransition = task ? can(Permission.TASK_TRANSITION) : false;
   const canDelete = task ? can(Permission.TASK_DELETE) : false;
-  const canMoveSprint = can(Permission.SPRINT_MANAGE) && project.boardType === BoardType.SCRUM;
+  const isEpic = task?.type === TaskType.EPIC;
+  const canMoveSprint = can(Permission.SPRINT_MANAGE) && project.boardType === BoardType.SCRUM && !isEpic;
   const canComment = can(Permission.COMMENT_CREATE);
   const canManageComments = can(Permission.COMMENT_MANAGE);
 
@@ -162,6 +167,7 @@ export function TaskDrawer({
               {task.key}
             </span>
             <span className={categoryPillClass(task.status.category)}>{task.status.name}</span>
+            {task.epic && <EpicChip epic={task.epic} />}
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
               {canDelete && (
                 <button className="btn btn-danger" style={{ padding: '4px 10px' }} onClick={remove}>
@@ -262,6 +268,25 @@ export function TaskDrawer({
                         {s.name} {s.state === SprintState.ACTIVE ? '(activ)' : ''}
                       </option>
                     ))}
+                </select>
+              </div>
+            )}
+
+            {!isEpic && epics.length > 0 && (
+              <div className="field">
+                <label>Epic</label>
+                <select
+                  className="select"
+                  disabled={!canUpdate}
+                  value={task.epicId ?? ''}
+                  onChange={(e) => patch({ epicId: e.target.value || null }, 'epicId')}
+                >
+                  <option value="">Fără epic</option>
+                  {epics.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.key} — {e.title}
+                    </option>
+                  ))}
                 </select>
               </div>
             )}

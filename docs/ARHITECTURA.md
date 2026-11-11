@@ -90,6 +90,7 @@ erDiagram
     USER |o--o{ TASK : "assignee / reporter"
     TASK ||--o{ COMMENT : ""
     USER ||--o{ COMMENT : "author"
+    TASK |o--o{ TASK : "epic -> task-uri legate"
 
     USER { uuid id; string email; enum systemRole "ADMIN|USER"; bool isActive }
     ROLE { uuid id; string name; jsonb grants; bool isSystem; bool isDefault }
@@ -463,12 +464,38 @@ utilizatorul decide).
 
 ---
 
-## 16. Ce aș adăuga în continuare
+## 16. Epice
+
+**Cerința:** gruparea task-urilor înrudite sub un „epic”, ca în Jira.
+
+- **Un epic e doar un `Task` cu `type = EPIC`**, nu o entitate separată. Alte task-uri se leagă de el
+  prin `Task.epicId` (auto-FK, `ON DELETE SET NULL` — ștergerea epicului nu șterge task-urile, doar le
+  desface). Am ales asta (nu un modul `epics/` separat) fiindcă un epic are nevoie de exact aceleași
+  lucruri ca un task: titlu, descriere, status, reporter — reutilizarea întregii infrastructuri
+  existente (creare, permisiuni, workflow) e mult mai simplă decât un al doilea model paralel.
+- **Reguli, impuse în `TasksService`:**
+  - un epic nu poate fi pus într-un sprint (`type=EPIC` + `sprintId` → 400) — planificarea pe sprint
+    se face la nivel de task/poveste, nu la nivel de epic;
+  - un epic nu se poate lega de alt epic (`epicId` către un task cu `type≠EPIC` → 400) — nu există
+    imbricare, un singur nivel de grupare;
+  - epicele **nu apar pe board** (`board()` exclude explicit `type=EPIC`) — board-ul e pentru munca
+    efectivă (story/task/bug), epicele sunt browsabile separat, pe tab-ul lor.
+- **`GET /projects/:id/epics`** returnează fiecare epic cu `taskCount`/`doneCount` calculate
+  (`COUNT(*) FILTER (WHERE status.category = 'DONE')`) — suficient pentru o bară de progres în UI,
+  fără să încarce toate task-urile legate doar ca să le numere.
+- Frontend: un tab nou „Epice” per proiect, cu un chip colorat (culoare derivată determinist din
+  cheia epicului, ca la pătratele proiectelor din sidebar — §11) afișat pe cardurile de task/rândurile
+  de backlog care au un epic asociat.
+
+---
+
+## 17. Ce aș adăuga în continuare
 
 - Istoric de activitate pe task (cine a schimbat ce și când), ca „History” din Jira.
 - Refresh tokens și revocarea sesiunilor.
 - Ordonare manuală (rank) a task-urilor în backlog și pe board.
-- Sub-task-uri și epic-uri (relații părinte–copil între task-uri).
+- Sub-task-uri (relații părinte–copil mai fine, în interiorul unei povești/task — diferit de epice,
+  care grupează la un nivel mai sus; vezi §16).
 - Rate limiting pe `/auth/*`.
 - Aprobare de către PM-ul proiectului, nu doar admin, pentru cererile de acces (§13).
 - Notificare (in-app sau email) când primești un invite sau ți se decide o cerere, în loc să trebuiască
@@ -476,7 +503,7 @@ utilizatorul decide).
 
 ---
 
-## 17. Jurnal de modificări
+## 18. Jurnal de modificări
 
 Pe scurt, în ordine cronologică, ce s-a schimbat după versiunea inițială și de ce (detaliile, mai
 sus, în secțiunea corespunzătoare):
@@ -496,3 +523,5 @@ sus, în secțiunea corespunzătoare):
 | Polish vizual general (§11): avatar „neasignat” cu contur punctat în loc de „?”, umbră/elevație la hover pe cardurile de task, coloane goale pe board ca drop-zone punctat, separatoare și hover în navigare | Interfața funcționa corect, dar câteva detalii vizuale citeau ca neintenționate sau plate (ex. „?” pe un avatar arăta ca o eroare), nu ca o decizie de design. |
 | Navigare mutată într-un sidebar fix, stil Jira, cu proiecte colorate distinct (§11); scris și butoane mărite | Cerut explicit; tab-urile de sus pentru proiecte nu scalau bine cu mai multe proiecte, iar textul/butoanele erau prea mici pentru utilizare prelungită. |
 | `DELETE /users/:id`: ștergere reală de cont, nu doar dezactivare (§5) | Cerut explicit („nu poți să ștergi conturi”); blocat totuși dacă userul a creat task-uri/comentarii, ca istoricul proiectului să nu dispară — dezactivarea rămâne calea pentru acel caz. |
+| Buton de ștergere proiect adăugat pe `/projects` (admin) | Endpoint-ul `DELETE /projects/:id` exista deja pe backend, dar nu avea nicio interfață — nu era un bug de permisiuni, doar un control lipsă. |
+| Epice (§16): grupare de task-uri sub un epic, tab nou „Epice”, chip colorat pe carduri/rânduri | Cerut explicit; implementat ca `Task` cu `type=EPIC` + `epicId` pe celelalte task-uri, nu ca entitate separată, ca să refolosească toată infrastructura existentă. |

@@ -39,6 +39,7 @@ function ProjectShell() {
           <Tab to="board">Board</Tab>
           <Tab to="backlog">Backlog</Tab>
           {isScrum && <Tab to="sprints">Sprinturi</Tab>}
+          <Tab to="epics">Epice</Tab>
           <Tab to="members">Membri</Tab>
           <Tab to="workflow">Workflow</Tab>
         </nav>

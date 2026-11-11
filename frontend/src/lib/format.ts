@@ -54,7 +54,14 @@ export function categoryPillClass(category: string): string {
   );
 }
 
-const TYPE_ICON: Record<string, string> = { STORY: '◆', TASK: '▣', BUG: '●' };
+const TYPE_ICON: Record<string, string> = { EPIC: '▲', STORY: '◆', TASK: '▣', BUG: '●' };
 export function typeIcon(t: string): string {
   return TYPE_ICON[t] ?? '▣';
+}
+
+/** Deterministic hue from a short key, e.g. a project key or an epic's key — used for color swatches/chips. */
+export function hueFromKey(key: string): number {
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) % 360;
+  return h;
 }

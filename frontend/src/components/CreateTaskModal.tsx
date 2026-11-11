@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, ApiError } from '../lib/api';
-import { TaskPriority, TaskType, type Task } from '../lib/types';
+import { TaskPriority, TaskType, type Epic, type Task } from '../lib/types';
 import { Modal } from './Modal';
 import { ErrorBanner } from './Feedback';
 import { typeIcon } from '../lib/format';
+
+const CREATABLE_TYPES = Object.values(TaskType).filter((t) => t !== TaskType.EPIC);
 
 export function CreateTaskModal({
   projectId,
@@ -20,8 +22,14 @@ export function CreateTaskModal({
   const [description, setDescription] = useState('');
   const [type, setType] = useState<TaskType>(TaskType.TASK);
   const [priority, setPriority] = useState<TaskPriority>(TaskPriority.MEDIUM);
+  const [epicId, setEpicId] = useState('');
+  const [epics, setEpics] = useState<Epic[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api.get<Epic[]>(`/projects/${projectId}/epics`).then(setEpics).catch(() => {});
+  }, [projectId]);
 
   const submit = async () => {
     setBusy(true);
@@ -33,6 +41,7 @@ export function CreateTaskModal({
         type,
         priority,
         sprintId: sprintId ?? undefined,
+        epicId: epicId || undefined,
       });
       onCreated(task);
     } catch (e) {
@@ -58,7 +67,7 @@ export function CreateTaskModal({
           <div className="field" style={{ flex: 1 }}>
             <label>Tip</label>
             <select className="select" value={type} onChange={(e) => setType(e.target.value as TaskType)}>
-              {Object.values(TaskType).map((t) => (
+              {CREATABLE_TYPES.map((t) => (
                 <option key={t} value={t}>
                   {typeIcon(t)} {t}
                 </option>
@@ -76,6 +85,19 @@ export function CreateTaskModal({
             </select>
           </div>
         </div>
+        {epics.length > 0 && (
+          <div className="field">
+            <label>Epic (opțional)</label>
+            <select className="select" value={epicId} onChange={(e) => setEpicId(e.target.value)}>
+              <option value="">Fără epic</option>
+              {epics.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.key} — {e.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button className="btn" onClick={onClose}>
             Anulează

@@ -32,6 +32,7 @@ export enum SprintState {
 }
 
 export enum TaskType {
+  EPIC = 'EPIC',
   STORY = 'STORY',
   TASK = 'TASK',
   BUG = 'BUG',
@@ -166,6 +167,12 @@ export interface Sprint {
   updatedAt: string;
 }
 
+export interface EpicRef {
+  id: string;
+  key: string;
+  title: string;
+}
+
 export interface Task {
   id: string;
   projectId: string;
@@ -184,8 +191,15 @@ export interface Task {
   reporter: User;
   sprintId: string | null;
   sprint: Sprint | null;
+  epicId: string | null;
+  epic: EpicRef | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Epic extends Task {
+  taskCount: number;
+  doneCount: number;
 }
 
 export interface BoardColumn {

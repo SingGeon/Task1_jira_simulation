@@ -2,13 +2,8 @@ import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { hueFromKey } from '../lib/format';
 import type { Project } from '../lib/types';
-
-function hueFromKey(key: string): number {
-  let h = 0;
-  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) % 360;
-  return h;
-}
 
 export function Sidebar() {
   const { isAdmin } = useAuth();

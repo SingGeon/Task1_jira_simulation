@@ -10,8 +10,9 @@ import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { Sprint, SprintState } from '../sprints/sprint.entity';
 import { SprintsService } from '../sprints/sprints.service';
 import { User } from '../users/user.entity';
+import { StatusCategory } from '../workflow/workflow-status.entity';
 import { WorkflowService } from '../workflow/workflow.service';
-import { Task } from './task.entity';
+import { Task, TaskType } from './task.entity';
 import {
   AssignTaskDto,
   BoardQueryDto,
@@ -44,7 +45,16 @@ export class TasksService {
       .leftJoinAndSelect('t.status', 'status')
       .leftJoinAndSelect('t.assignee', 'assignee')
       .leftJoinAndSelect('t.reporter', 'reporter')
-      .leftJoinAndSelect('t.sprint', 'sprint');
+      .leftJoinAndSelect('t.sprint', 'sprint')
+      .leftJoinAndSelect('t.epic', 'epic');
+  }
+
+  /** An epicId must point at an EPIC in the same project; epics can't belong to another epic. */
+  private async resolveEpic(projectId: string, epicId: string): Promise<Task> {
+    const epic = await this.tasks.findOne({ where: { id: epicId, projectId } });
+    if (!epic) throw new BadRequestException('Epic not found in this project');
+    if (epic.type !== TaskType.EPIC) throw new BadRequestException(`'${epic.key}' is not an epic`);
+    return epic;
   }
 
   /** Loads a task by id or key ("WEB-12") and resolves the caller's project access. */
@@ -101,6 +111,11 @@ export class TasksService {
     // Placing a new task directly into a sprint only needs 'task.create': anyone
     // allowed to create tasks can add their own into the sprint they're working in.
     if (dto.sprintId) await this.resolveSprint(projectId, dto.sprintId);
+    if (dto.type === TaskType.EPIC && dto.sprintId) throw new BadRequestException('Epics cannot be placed in a sprint');
+    if (dto.epicId) {
+      if (dto.type === TaskType.EPIC) throw new BadRequestException('An epic cannot belong to another epic');
+      await this.resolveEpic(projectId, dto.epicId);
+    }
 
     const id = await this.dataSource.transaction(async (em) => {
       // Atomic per-project counter -> WEB-1, WEB-2, ... (safe under concurrency)
@@ -126,6 +141,7 @@ export class TasksService {
           assigneeId: dto.assigneeId ?? null,
           reporterId: user.id,
           sprintId: dto.sprintId ?? null,
+          epicId: dto.epicId ?? null,
         }),
       );
       return saved.id;
@@ -137,11 +153,15 @@ export class TasksService {
   async update(user: User, idOrKey: string, dto: UpdateTaskDto): Promise<Task> {
     const { task, access } = await this.load(user, idOrKey);
     access.assert(Permission.TASK_UPDATE, task);
-    const { title, description, type, priority, labels, storyPoints } = dto;
+    const { title, description, type, priority, labels, storyPoints, epicId } = dto;
     const changes = Object.fromEntries(
-      Object.entries({ title, description, type, priority, labels, storyPoints }).filter(([, v]) => v !== undefined),
+      Object.entries({ title, description, type, priority, labels, storyPoints, epicId }).filter(([, v]) => v !== undefined),
     );
     if (Object.keys(changes).length === 0) throw new BadRequestException('Nothing to update');
+    if (epicId !== undefined && epicId !== null) {
+      if ((type ?? task.type) === TaskType.EPIC) throw new BadRequestException('An epic cannot belong to another epic');
+      await this.resolveEpic(task.projectId, epicId);
+    }
     await this.tasks.update(task.id, changes);
     this.realtime.broadcast(task.projectId);
     return this.reload(task.id);
@@ -211,6 +231,7 @@ export class TasksService {
     if (q.label) qb.andWhere(':label = ANY(t.labels)', { label: q.label.toLowerCase() });
     if (q.backlog) qb.andWhere('t.sprintId IS NULL');
     else if (q.sprintId) qb.andWhere('t.sprintId = :sprintId', { sprintId: q.sprintId });
+    if (q.epicId) qb.andWhere('t.epicId = :epicId', { epicId: q.epicId });
     if (q.type) qb.andWhere('t.type = :type', { type: q.type });
     if (q.priority) qb.andWhere('t.priority = :priority', { priority: q.priority });
     if (q.q) qb.andWhere('(t.title ILIKE :q OR t.key ILIKE :q)', { q: `%${q.q}%` });
@@ -231,7 +252,9 @@ export class TasksService {
 
     let sprint: Sprint | null = null;
     let tasks: Task[] = [];
-    const qb = this.baseQuery().where('t.projectId = :projectId', { projectId });
+    const qb = this.baseQuery()
+      .where('t.projectId = :projectId', { projectId })
+      .andWhere('t.type != :epicType', { epicType: TaskType.EPIC });
     const assignee = this.resolveAssigneeFilter(user, q.assignee);
     if (assignee === null) qb.andWhere('t.assigneeId IS NULL');
     else if (assignee) qb.andWhere('t.assigneeId = :assignee', { assignee });
@@ -251,5 +274,31 @@ export class TasksService {
         tasks: tasks.filter((t) => t.statusId === s.id),
       })),
     };
+  }
+
+  /** Epics in a project, each with how many tasks link to it and how many of those are DONE. */
+  async listEpics(user: User, projectId: string) {
+    await this.acl.forProject(user, projectId);
+    const epics = await this.tasks.find({
+      where: { projectId, type: TaskType.EPIC },
+      relations: { status: true, assignee: true, reporter: true },
+      order: { createdAt: 'ASC' },
+    });
+    if (epics.length === 0) return [];
+
+    const counts = await this.tasks
+      .createQueryBuilder('t')
+      .leftJoin('t.status', 'status')
+      .select('t.epicId', 'epicId')
+      .addSelect('COUNT(*)', 'total')
+      .addSelect('COUNT(*) FILTER (WHERE status.category = :done)', 'done')
+      .where('t.projectId = :projectId', { projectId })
+      .andWhere('t.epicId IS NOT NULL')
+      .setParameter('done', StatusCategory.DONE)
+      .groupBy('t.epicId')
+      .getRawMany<{ epicId: string; total: string; done: string }>();
+    const byEpic = new Map(counts.map((c) => [c.epicId, { taskCount: Number(c.total), doneCount: Number(c.done) }]));
+
+    return epics.map((epic) => ({ ...epic, ...(byEpic.get(epic.id) ?? { taskCount: 0, doneCount: 0 }) }));
   }
 }
