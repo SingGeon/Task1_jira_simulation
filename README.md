@@ -85,7 +85,7 @@ proiect, membri, regulile Developer/QA/PM, workflow, sprinturi, board Kanban, cr
 | Roles | `GET /roles`, `GET /roles/permissions`, `POST/PATCH/DELETE /roles/:id` *(admin)* |
 | Projects | `POST /projects` *(admin: orice tip; altfel: doar Team-managed, devii PM)*, `GET /projects`, `GET /projects/directory` *(toate proiectele, pentru cereri de acces)*, `GET/PATCH /projects/:id`, `DELETE /projects/:id` *(admin)* |
 | Members | `GET/POST /projects/:id/members`, `PATCH/DELETE /projects/:id/members/:userId` |
-| Join requests | `POST /join-requests` *(acces nou sau schimbare de rol dacă ești deja membru)*, `GET /join-requests/mine`, `GET /join-requests` *(admin)*, `POST /join-requests/:id/approve\|reject` *(admin)* |
+| Join requests | `POST /join-requests` *(acces nou sau schimbare de rol dacă ești deja membru)*, `GET /join-requests/mine`, `GET /join-requests` *(admin: toate; PM: doar proiectele lui)*, `POST /join-requests/:id/approve\|reject` *(admin sau PM cu `project.members.manage`)* |
 | Invites | `POST /projects/:id/invites`, `GET /projects/:id/invites`, `GET /invites/mine`, `POST /invites/:id/accept\|decline` |
 | Workflow | `GET /projects/:id/workflow`, `POST/PATCH/DELETE .../workflow/statuses[/:id]`, `POST/DELETE .../workflow/transitions[/:id]` |
 | Sprints | `GET/POST /projects/:id/sprints`, `GET/PATCH/DELETE .../sprints/:sid`, `POST .../sprints/:sid/start`, `POST .../sprints/:sid/complete` |
