@@ -10,7 +10,10 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { ConfigModule } from './config/config.module';
 import { APP_CONFIG, AppConfig } from './config/configuration';
 import { buildDataSourceOptions } from './database/data-source-options';
+import { InvitesModule } from './invites/invites.module';
+import { JoinRequestsModule } from './join-requests/join-requests.module';
 import { ProjectsModule } from './projects/projects.module';
+import { RealtimeModule } from './realtime/realtime.module';
 import { Role } from './roles/role.entity';
 import { RolesModule } from './roles/roles.module';
 import { SprintsModule } from './sprints/sprints.module';
@@ -28,10 +31,13 @@ import { WorkflowModule } from './workflow/workflow.module';
     }),
     TypeOrmModule.forFeature([Role, User]),
     AccessModule,
+    RealtimeModule,
     AuthModule,
     UsersModule,
     RolesModule,
     ProjectsModule,
+    JoinRequestsModule,
+    InvitesModule,
     WorkflowModule,
     SprintsModule,
     TasksModule,

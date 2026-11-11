@@ -18,16 +18,25 @@ export class ProjectsController {
   ) {}
 
   @Post()
-  @AdminOnly()
-  @ApiOperation({ summary: '[Admin] Create a project (default workflow is created automatically)' })
-  create(@Body() dto: CreateProjectDto) {
-    return this.projects.create(dto);
+  @ApiOperation({
+    summary:
+      'Create a project (default workflow is created automatically). Admins may create either management type; ' +
+      'everyone else can only create a Team-managed project (if enabled) and becomes its PM.',
+  })
+  create(@CurrentUser() user: User, @Body() dto: CreateProjectDto) {
+    return this.projects.create(user, dto);
   }
 
   @Get()
   @ApiOperation({ summary: 'Projects visible to the current user' })
   list(@CurrentUser() user: User) {
     return this.projects.listFor(user);
+  }
+
+  @Get('directory')
+  @ApiOperation({ summary: 'Every project (id/key/name/boardType only) — to pick one when requesting access' })
+  directory() {
+    return this.projects.listDirectory();
   }
 
   @Get(':projectId')

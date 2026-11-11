@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsEnum, IsOptional, IsString, IsUUID, Length, Matches, MaxLength } from 'class-validator';
-import { BoardType } from '../project.entity';
+import { BoardType, ProjectManagement } from '../project.entity';
 
 export class CreateProjectDto {
   @ApiProperty({ example: 'WEB', description: '2-10 chars, uppercase letters/digits, starts with a letter' })
@@ -26,10 +26,19 @@ export class CreateProjectDto {
   @IsEnum(BoardType)
   boardType?: BoardType;
 
-  @ApiPropertyOptional({ description: 'User added to the project with the Project Manager role' })
+  @ApiPropertyOptional({ description: 'User added to the project with the Project Manager role (admin only; team-managed projects always lead with the creator)' })
   @IsOptional()
   @IsUUID()
   leadId?: string;
+
+  @ApiPropertyOptional({
+    enum: ProjectManagement,
+    default: ProjectManagement.TEAM,
+    description: 'COMPANY requires admin; non-admins can only create TEAM projects (and become their PM)',
+  })
+  @IsOptional()
+  @IsEnum(ProjectManagement)
+  management?: ProjectManagement;
 }
 
 export class UpdateProjectDto {

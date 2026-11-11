@@ -6,6 +6,7 @@ import { Permission } from '../access/permission.enum';
 import { ProjectAccess } from '../access/project-access';
 import { paginate } from '../common/dto/pagination.dto';
 import { BoardType, Project } from '../projects/project.entity';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { Sprint, SprintState } from '../sprints/sprint.entity';
 import { SprintsService } from '../sprints/sprints.service';
 import { User } from '../users/user.entity';
@@ -32,6 +33,7 @@ export class TasksService {
     private readonly acl: AccessControlService,
     private readonly workflow: WorkflowService,
     private readonly sprints: SprintsService,
+    private readonly realtime: RealtimeGateway,
   ) {}
 
   // ---------- helpers ----------
@@ -96,10 +98,9 @@ export class TasksService {
       access.assert(Permission.TASK_ASSIGN, { assigneeId: null, reporterId: user.id, status: initial });
       await this.assertAssignable(projectId, dto.assigneeId);
     }
-    if (dto.sprintId) {
-      access.assert(Permission.SPRINT_MANAGE);
-      await this.resolveSprint(projectId, dto.sprintId);
-    }
+    // Placing a new task directly into a sprint only needs 'task.create': anyone
+    // allowed to create tasks can add their own into the sprint they're working in.
+    if (dto.sprintId) await this.resolveSprint(projectId, dto.sprintId);
 
     const id = await this.dataSource.transaction(async (em) => {
       // Atomic per-project counter -> WEB-1, WEB-2, ... (safe under concurrency)
@@ -129,6 +130,7 @@ export class TasksService {
       );
       return saved.id;
     });
+    this.realtime.broadcast(projectId);
     return this.reload(id);
   }
 
@@ -141,6 +143,7 @@ export class TasksService {
     );
     if (Object.keys(changes).length === 0) throw new BadRequestException('Nothing to update');
     await this.tasks.update(task.id, changes);
+    this.realtime.broadcast(task.projectId);
     return this.reload(task.id);
   }
 
@@ -157,6 +160,7 @@ export class TasksService {
       );
     }
     await this.tasks.update(task.id, { statusId: target.id });
+    this.realtime.broadcast(task.projectId);
     return this.reload(task.id);
   }
 
@@ -175,6 +179,7 @@ export class TasksService {
     access.assert(Permission.TASK_ASSIGN, task);
     if (dto.assigneeId) await this.assertAssignable(task.projectId, dto.assigneeId);
     await this.tasks.update(task.id, { assigneeId: dto.assigneeId });
+    this.realtime.broadcast(task.projectId);
     return this.reload(task.id);
   }
 
@@ -183,6 +188,7 @@ export class TasksService {
     access.assert(Permission.SPRINT_MANAGE);
     if (dto.sprintId) await this.resolveSprint(task.projectId, dto.sprintId);
     await this.tasks.update(task.id, { sprintId: dto.sprintId });
+    this.realtime.broadcast(task.projectId);
     return this.reload(task.id);
   }
 
@@ -190,6 +196,7 @@ export class TasksService {
     const { task, access } = await this.load(user, idOrKey);
     access.assert(Permission.TASK_DELETE, task);
     await this.tasks.delete(task.id);
+    this.realtime.broadcast(task.projectId);
   }
 
   // ---------- queries ----------

@@ -12,6 +12,7 @@ export interface AppConfig {
   };
   jwt: { secret: string; expiresIn: string };
   registrationEnabled: boolean;
+  teamProjectsEnabled: boolean;
   admin: { email?: string; password?: string; name: string };
 }
 
@@ -37,6 +38,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     },
     jwt: { secret: jwtSecret, expiresIn: env.JWT_EXPIRES_IN ?? '1d' },
     registrationEnabled: bool(env.REGISTRATION_ENABLED, true),
+    teamProjectsEnabled: bool(env.TEAM_PROJECTS_ENABLED, true),
     admin: {
       email: env.ADMIN_EMAIL?.toLowerCase(),
       password: env.ADMIN_PASSWORD,

@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { APP_CONFIG, AppConfig } from './config/configuration';
@@ -12,6 +13,7 @@ async function bootstrap() {
     /* .env is optional; real env vars take precedence anyway */
   }
   const app = await NestFactory.create(AppModule);
+  app.useWebSocketAdapter(new IoAdapter(app));
   setupApp(app);
 
   const swagger = new DocumentBuilder()
