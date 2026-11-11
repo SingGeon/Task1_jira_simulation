@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { api, getToken, setToken, setUnauthorizedHandler } from './api';
+import { api, clearTokens, getRefreshToken, getToken, setRefreshToken, setToken, setUnauthorizedHandler } from './api';
 import { disconnectRealtime } from './realtime';
 import type { AuthResponse, User } from './types';
 import { SystemRole } from './types';
@@ -21,7 +21,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const logout = () => {
-    setToken(null);
+    const refreshToken = getRefreshToken();
+    if (refreshToken) api.post('/auth/logout', { refreshToken }).catch(() => {});
+    clearTokens();
     setUser(null);
     disconnectRealtime();
   };
@@ -39,19 +41,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     api
       .get<User>('/users/me')
       .then(setUser)
-      .catch(() => setToken(null))
+      .catch(() => clearTokens())
       .finally(() => setLoading(false));
   }, []);
 
   const login = async (email: string, password: string) => {
     const res = await api.post<AuthResponse>('/auth/login', { email, password });
     setToken(res.accessToken);
+    setRefreshToken(res.refreshToken);
     setUser(res.user);
   };
 
   const register = async (email: string, password: string, fullName: string) => {
     const res = await api.post<AuthResponse>('/auth/register', { email, password, fullName });
     setToken(res.accessToken);
+    setRefreshToken(res.refreshToken);
     setUser(res.user);
   };
 

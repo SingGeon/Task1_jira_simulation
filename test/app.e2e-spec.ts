@@ -58,6 +58,39 @@ describe('Task Tracker (e2e)', () => {
     expect(res.body.message).toBe('Invalid e-mail or password');
   });
 
+  it('refresh tokens rotate, reused ones revoke every session, and sessions can be listed/revoked', async () => {
+    const login = await http.post('/api/auth/login').send({ email: 'admin@test.local', password: 'Admin123!' }).expect(200);
+    expect(login.body.refreshToken).toBeDefined();
+    const firstRefresh = login.body.refreshToken;
+    const firstAccess = login.body.accessToken;
+
+    const rotated = await http.post('/api/auth/refresh').send({ refreshToken: firstRefresh }).expect(200);
+    expect(rotated.body.refreshToken).not.toBe(firstRefresh);
+
+    // Reusing an already-rotated refresh token looks like theft: it revokes every session for that user.
+    await http.post('/api/auth/refresh').send({ refreshToken: firstRefresh }).expect(401);
+    await http.post('/api/auth/refresh').send({ refreshToken: rotated.body.refreshToken }).expect(401);
+
+    // The old access token issued at login is untouched by refresh-token revocation (still valid until it expires).
+    await http.get('/api/users/me').set('Authorization', `Bearer ${firstAccess}`).expect(200);
+
+    const fresh = await http.post('/api/auth/login').send({ email: 'admin@test.local', password: 'Admin123!' }).expect(200);
+    const sessions = await http.get('/api/auth/sessions').set('Authorization', `Bearer ${fresh.body.accessToken}`).expect(200);
+    expect(sessions.body.length).toBeGreaterThan(0);
+
+    await http
+      .delete(`/api/auth/sessions/${sessions.body[0].id}`)
+      .set('Authorization', `Bearer ${fresh.body.accessToken}`)
+      .expect(204);
+    await http.post('/api/auth/refresh').send({ refreshToken: fresh.body.refreshToken }).expect(401);
+
+    const another = await http.post('/api/auth/login').send({ email: 'admin@test.local', password: 'Admin123!' }).expect(200);
+    await http.post('/api/auth/logout').send({ refreshToken: another.body.refreshToken }).expect(204);
+    await http.post('/api/auth/refresh').send({ refreshToken: another.body.refreshToken }).expect(401);
+
+    await http.post('/api/auth/logout').send({ refreshToken: 'not-a-real-token' }).expect(204); // never leaks existence
+  });
+
   it('validates registration payload and forbids choosing a role', async () => {
     const res = await http
       .post('/api/auth/register')

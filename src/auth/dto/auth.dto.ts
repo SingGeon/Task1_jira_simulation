@@ -18,3 +18,10 @@ export class LoginDto {
   @MaxLength(72)
   password: string;
 }
+
+export class RefreshTokenDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(1)
+  refreshToken: string;
+}

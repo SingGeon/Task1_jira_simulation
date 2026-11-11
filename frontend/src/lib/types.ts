@@ -295,7 +295,15 @@ export interface PublicConfig {
 
 export interface AuthResponse {
   accessToken: string;
+  refreshToken: string;
   user: User;
+}
+
+export interface Session {
+  id: string;
+  userAgent: string | null;
+  createdAt: string;
+  expiresAt: string;
 }
 
 export interface ApiErrorBody {

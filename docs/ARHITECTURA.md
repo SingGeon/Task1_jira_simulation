@@ -126,7 +126,8 @@ Decizii la nivel de model:
 
 ## 5. Autentificare și înregistrare
 
-- `POST /api/auth/register` și `POST /api/auth/login` returnează `{ accessToken, user }`.
+- `POST /api/auth/register` și `POST /api/auth/login` returnează `{ accessToken, refreshToken, user }`
+  — vezi §18 pentru ce face al doilea token.
 - Toate celelalte rute cer `Authorization: Bearer <token>`. Am pus **guard-ul JWT global**, ca
   rutele să fie protejate implicit: o rută nouă e protejată automat, iar pentru excepții se pune
   explicit `@Public()`. Așa nu poți uita să protejezi un endpoint.
@@ -533,9 +534,39 @@ o privire de ansamblu pentru admin, peste toate proiectele.
 
 ---
 
-## 18. Ce aș adăuga în continuare
+## 18. Refresh tokens și revocarea sesiunilor
 
-- Refresh tokens și revocarea sesiunilor.
+**Cerința:** un access token care nu mai stă valabil o zi întreagă (risc dacă e furat/logat undeva),
+dar fără să oblige utilizatorul să se relogheze din 15 în 15 minute — plus o cale reală de a
+revoca o sesiune (dacă bănuiești că ți s-a compromis contul de pe un dispozitiv).
+
+- **Access token scurt (`JWT_ACCESS_EXPIRES_IN`, implicit `15m`) + refresh token lung
+  (`JWT_REFRESH_EXPIRES_IN`, implicit `30d`).** Access token-ul rămâne exact ce era (JWT stateless,
+  doar `sub`, verificat de `JwtStrategy` — §5); refresh token-ul e o valoare aleatoare opacă, cu
+  rândul lui propriu în `refresh_tokens`, deci **poate fi revocat** — lucru imposibil pentru un JWT
+  obișnuit fără o listă neagră separată, care e oricum ce construim aici.
+- **Doar hash-ul e stocat** (`sha256`, coloana `tokenHash`, unică), niciodată valoarea brută — un
+  dump al bazei de date nu poate fi reluat ca sesiune validă. `actorId`-ul echivalent aici,
+  `userId`, e `CASCADE` (nu `RESTRICT` ca la `reporterId`/`authorId` — §4): o sesiune nu e istoric
+  de păstrat, la ștergerea contului dispare automat odată cu el.
+- **Rotație la fiecare refresh:** `POST /auth/refresh` revocă rândul folosit și creează unul nou —
+  un refresh token nu poate fi refolosit de două ori. Dacă totuși e refolosit (cineva a furat un
+  token vechi dintr-un loc nesigur și îl joacă după ce proprietarul de drept l-a rotit deja),
+  asta e tratat ca semnal de compromitere: **se revocă toate sesiunile acelui utilizator**, nu doar
+  cererea curentă — genul clasic de „refresh token reuse detection”.
+- **`GET /auth/sessions` / `DELETE /auth/sessions/:id` / `POST /auth/logout-all`** — o pagină
+  „Sesiuni active” în Profil, ca utilizatorul să-și vadă și să-și revoce singur sesiunile (cu
+  `userAgent` salvat la creare, ca să recunoască „ăla e telefonul meu” / „asta nu sunt eu”).
+- **Pe frontend, `lib/api.ts` reîncearcă silențios la un 401:** cere un access token nou via
+  refresh token (o singură cerere de refresh în zbor, chiar dacă mai multe request-uri lovesc 401
+  simultan) și reia cererea originală o singură dată; doar dacă refresh-ul eșuează și el se ajunge
+  la delogare reală. Utilizatorul nu simte expirarea la 15 minute — doar dacă refresh token-ul
+  însuși a fost revocat (din Profil, sau prin „Delogează peste tot”) ajunge efectiv pe `/login`.
+
+---
+
+## 19. Ce aș adăuga în continuare
+
 - Ordonare manuală (rank) a task-urilor în backlog și pe board.
 - Sub-task-uri (relații părinte–copil mai fine, în interiorul unei povești/task — diferit de epice,
   care grupează la un nivel mai sus; vezi §16).
@@ -546,7 +577,7 @@ o privire de ansamblu pentru admin, peste toate proiectele.
 
 ---
 
-## 19. Jurnal de modificări
+## 20. Jurnal de modificări
 
 Pe scurt, în ordine cronologică, ce s-a schimbat după versiunea inițială și de ce (detaliile, mai
 sus, în secțiunea corespunzătoare):
@@ -570,3 +601,4 @@ sus, în secțiunea corespunzătoare):
 | Epice (§16): grupare de task-uri sub un epic, tab nou „Epice”, chip colorat pe carduri/rânduri | Cerut explicit; implementat ca `Task` cu `type=EPIC` + `epicId` pe celelalte task-uri, nu ca entitate separată, ca să refolosească toată infrastructura existentă. |
 | Pagina „Epice” rescrisă ca arbore expandabil (§16): chevron pe fiecare epic, task-urile legate apar indentate dedesubt la expand (lazy-load) | Cerut explicit, pe baza unui screenshot din Jira Cloud real („Timeline”); varianta anterioară (listă de carduri) nu permitea accesul direct la task-urile unui epic. |
 | Istoric de activitate pe task (§17): tab „Istoric” în drawer, plus pagină „Jurnal” pentru admin peste toate proiectele | Cerut explicit, ca tab-ul „History” din Jira; clarificat că „backlogul pentru admin” din cerere însemna de fapt jurnalul cine-a-făcut-ce, nu un backlog agregat. |
+| Refresh tokens + revocarea sesiunilor (§18): access token scurt (15m), refresh token revocabil (30d) cu rotație și detecție de refolosire, pagină „Sesiuni active” în Profil | Cerut explicit, de pe lista „ce aș adăuga”; access token-ul de 1 zi fără nicio cale de revocare era un risc real dacă un token ar fi fost furat. |

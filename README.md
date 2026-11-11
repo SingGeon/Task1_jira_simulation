@@ -80,7 +80,7 @@ proiect, membri, regulile Developer/QA/PM, workflow, sprinturi, board Kanban, cr
 | Zonă | Endpoint-uri |
 |---|---|
 | Config | `GET /config/public` *(fără autentificare)* — feature flags pentru client |
-| Auth | `POST /auth/register`, `POST /auth/login` |
+| Auth | `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh` *(rotește refresh token-ul)*, `POST /auth/logout`, `POST /auth/logout-all`, `GET /auth/sessions`, `DELETE /auth/sessions/:id` |
 | Users | `GET/PATCH /users/me`, `GET /users`, `GET /users/:id`, `POST /users` *(admin)*, `PATCH /users/:id` *(admin)*, `DELETE /users/:id` *(admin; fails if they authored tasks/comments — deactivate instead)* |
 | Roles | `GET /roles`, `GET /roles/permissions`, `POST/PATCH/DELETE /roles/:id` *(admin)* |
 | Projects | `POST /projects` *(admin: orice tip; altfel: doar Team-managed, devii PM)*, `GET /projects`, `GET /projects/directory` *(toate proiectele, pentru cereri de acces)*, `GET/PATCH /projects/:id`, `DELETE /projects/:id` *(admin)* |
@@ -103,7 +103,8 @@ Toate rutele au prefixul `/api`. Pe lângă REST, serverul expune și un canal *
 | `DB_HOST/PORT/USER/PASSWORD/NAME` | `localhost/5432/postgres/postgres/task_tracker` | conexiunea Postgres |
 | `DB_MIGRATIONS_RUN` | `true` | rulează migrațiile la pornire |
 | `JWT_SECRET` | *(obligatoriu, min. 16 caractere)* | cheia de semnare JWT |
-| `JWT_EXPIRES_IN` | `1d` | valabilitatea token-ului |
+| `JWT_ACCESS_EXPIRES_IN` | `15m` | valabilitatea access token-ului (`JWT_EXPIRES_IN` e acceptat ca alias vechi) |
+| `JWT_REFRESH_EXPIRES_IN` | `30d` | valabilitatea refresh token-ului |
 | `REGISTRATION_ENABLED` | `true` | `false` = doar adminul creează conturi |
 | `TEAM_PROJECTS_ENABLED` | `true` | `false` = doar adminul creează proiecte (niciun Team-managed self-service) |
 | `ADMIN_EMAIL/PASSWORD/NAME` | – | primul admin, creat dacă nu există niciun admin |

@@ -10,7 +10,7 @@ export interface AppConfig {
     dropSchema: boolean;
     logging: boolean;
   };
-  jwt: { secret: string; expiresIn: string };
+  jwt: { secret: string; accessExpiresIn: string; refreshExpiresIn: string };
   registrationEnabled: boolean;
   teamProjectsEnabled: boolean;
   admin: { email?: string; password?: string; name: string };
@@ -36,7 +36,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       dropSchema: bool(env.DB_DROP_SCHEMA, false),
       logging: bool(env.DB_LOGGING, false),
     },
-    jwt: { secret: jwtSecret, expiresIn: env.JWT_EXPIRES_IN ?? '1d' },
+    jwt: {
+      secret: jwtSecret,
+      // JWT_EXPIRES_IN is the old name, kept as a fallback so existing .env files keep working.
+      accessExpiresIn: env.JWT_ACCESS_EXPIRES_IN ?? env.JWT_EXPIRES_IN ?? '15m',
+      refreshExpiresIn: env.JWT_REFRESH_EXPIRES_IN ?? '30d',
+    },
     registrationEnabled: bool(env.REGISTRATION_ENABLED, true),
     teamProjectsEnabled: bool(env.TEAM_PROJECTS_ENABLED, true),
     admin: {
