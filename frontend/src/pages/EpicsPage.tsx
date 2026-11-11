@@ -3,15 +3,18 @@ import { useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../lib/api';
 import { useProjectAccess } from '../lib/projectAccess';
 import { useProjectRealtime } from '../lib/realtime';
-import { Permission, TaskType, type Epic } from '../lib/types';
+import { Permission, TaskType, type Epic, type Paginated, type Task } from '../lib/types';
 import { Spinner, ErrorBanner, EmptyState } from '../components/Feedback';
+import { Avatar } from '../components/Avatar';
 import { Modal } from '../components/Modal';
 import { TaskDrawer } from '../components/TaskDrawer';
-import { categoryPillClass, hueFromKey } from '../lib/format';
+import { categoryPillClass, hueFromKey, typeIcon } from '../lib/format';
 
 export function EpicsPage() {
   const { project, can } = useProjectAccess();
   const [epics, setEpics] = useState<Epic[] | null>(null);
+  const [children, setChildren] = useState<Record<string, Task[]>>({});
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [params, setParams] = useSearchParams();
@@ -25,7 +28,26 @@ export function EpicsPage() {
   }, [project.id]);
 
   useEffect(load, [load]);
-  useProjectRealtime(project.id, load);
+  useProjectRealtime(project.id, () => {
+    load();
+    // Any open epic's children may have changed too (status, new links, etc).
+    setChildren({});
+  });
+
+  const toggle = (epic: Epic) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(epic.id)) next.delete(epic.id);
+      else next.add(epic.id);
+      return next;
+    });
+    if (!children[epic.id]) {
+      api
+        .get<Paginated<Task>>(`/projects/${project.id}/tasks`, { epicId: epic.id, limit: 100 })
+        .then((r) => setChildren((prev) => ({ ...prev, [epic.id]: r.items })))
+        .catch(() => {});
+    }
+  };
 
   return (
     <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -44,9 +66,22 @@ export function EpicsPage() {
       )}
 
       {epics && epics.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="card" style={{ overflow: 'hidden' }}>
+          <div className="epic-tree-header">
+            <span />
+            <span>Lucru</span>
+            <span>Status</span>
+            <span />
+          </div>
           {epics.map((e) => (
-            <EpicRow key={e.id} epic={e} onOpen={() => setParams({ task: e.key })} />
+            <EpicNode
+              key={e.id}
+              epic={e}
+              expanded={expanded.has(e.id)}
+              children={children[e.id]}
+              onToggle={() => toggle(e)}
+              onOpen={(key) => setParams({ task: key })}
+            />
           ))}
         </div>
       )}
@@ -66,44 +101,78 @@ export function EpicsPage() {
   );
 }
 
-function EpicRow({ epic, onOpen }: { epic: Epic; onOpen: () => void }) {
+function EpicNode({
+  epic,
+  expanded,
+  children,
+  onToggle,
+  onOpen,
+}: {
+  epic: Epic;
+  expanded: boolean;
+  children: Task[] | undefined;
+  onToggle: () => void;
+  onOpen: (key: string) => void;
+}) {
   const pct = epic.taskCount > 0 ? Math.round((epic.doneCount / epic.taskCount) * 100) : 0;
   return (
-    <button className="card" onClick={onOpen} style={{ textAlign: 'left', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span
-          className="project-swatch"
-          style={{ '--hue': hueFromKey(epic.key) } as React.CSSProperties}
-        >
-          {epic.key.split('-')[1] ?? epic.key.slice(0, 2)}
-        </span>
-        <h2 style={{ flex: 1 }}>{epic.title}</h2>
+    <div>
+      <div className="epic-tree-row">
+        <button className="epic-chevron" onClick={onToggle} aria-label={expanded ? 'Restrânge' : 'Extinde'}>
+          {expanded ? '▾' : '▸'}
+        </button>
+        <button className="epic-tree-main" onClick={() => onOpen(epic.key)}>
+          <span className="project-swatch" style={{ '--hue': hueFromKey(epic.key) } as React.CSSProperties}>
+            {typeIcon(TaskType.EPIC)}
+          </span>
+          <span className="mono" style={{ fontSize: 12, color: 'var(--muted)' }}>
+            {epic.key}
+          </span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{epic.title}</span>
+          {epic.taskCount > 0 && (
+            <div className="epic-progress-track" style={{ width: 70 }}>
+              <div className="epic-progress-fill" style={{ width: `${pct}%` }} />
+            </div>
+          )}
+          <span style={{ fontSize: 12, color: 'var(--muted)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+            {epic.doneCount}/{epic.taskCount}
+          </span>
+        </button>
         <span className={categoryPillClass(epic.status.category)}>{epic.status.name}</span>
+        <Avatar name={epic.assignee?.fullName} size={24} unassigned={!epic.assignee} />
       </div>
-      {epic.description && (
-        <p
-          style={{
-            fontSize: 13,
-            color: 'var(--muted)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-          }}
-        >
-          {epic.description}
-        </p>
-      )}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div className="epic-progress-track" style={{ flex: 1 }}>
-          <div className="epic-progress-fill" style={{ width: `${pct}%` }} />
+
+      {expanded && (
+        <div className="epic-children">
+          {children === undefined && <Spinner />}
+          {children && children.length === 0 && (
+            <p style={{ fontSize: 12.5, color: 'var(--muted)', padding: '8px 10px 8px 54px' }}>
+              Niciun task legat de acest epic încă.
+            </p>
+          )}
+          {children?.map((t) => (
+            <button key={t.id} className="epic-child-row" onClick={() => onOpen(t.key)}>
+              <span className="mono" style={{ fontSize: 12, color: 'var(--muted)' }}>
+                {typeIcon(t.type)} {t.key}
+              </span>
+              <span
+                style={{
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  textDecoration: t.status.category === 'DONE' ? 'line-through' : 'none',
+                  color: t.status.category === 'DONE' ? 'var(--muted)' : 'var(--ink)',
+                }}
+              >
+                {t.title}
+              </span>
+              <span className={categoryPillClass(t.status.category)}>{t.status.name}</span>
+              <Avatar name={t.assignee?.fullName} size={22} unassigned={!t.assignee} />
+            </button>
+          ))}
         </div>
-        <span style={{ fontSize: 12, color: 'var(--muted)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-          {epic.doneCount}/{epic.taskCount} task-uri
-        </span>
-      </div>
-    </button>
+      )}
+    </div>
   );
 }
 
