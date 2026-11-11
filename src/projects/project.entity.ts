@@ -7,6 +7,17 @@ export enum BoardType {
   KANBAN = 'KANBAN', // board shows every task; continuous flow, no sprints
 }
 
+/**
+ * Mirrors Jira's "Company-managed" vs "Team-managed" distinction.
+ * COMPANY: only an admin can create one (org-standard project).
+ * TEAM: any authenticated user can create one (if TEAM_PROJECTS_ENABLED) and
+ * automatically becomes its Project Manager.
+ */
+export enum ProjectManagement {
+  COMPANY = 'COMPANY',
+  TEAM = 'TEAM',
+}
+
 @Entity('projects')
 export class Project extends BaseEntity {
   /** Short uppercase key used as task prefix, e.g. "WEB" -> WEB-1, WEB-2 */
@@ -22,6 +33,9 @@ export class Project extends BaseEntity {
 
   @Column({ type: 'enum', enum: BoardType, default: BoardType.SCRUM })
   boardType: BoardType;
+
+  @Column({ type: 'enum', enum: ProjectManagement, default: ProjectManagement.TEAM })
+  management: ProjectManagement;
 
   /** Monotonic counter for task numbers (never reused, even after deletions). */
   @Column({ type: 'int', default: 0 })

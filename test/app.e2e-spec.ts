@@ -84,8 +84,15 @@ describe('Task Tracker (e2e)', () => {
     expect(projects.body).toEqual([]);
   });
 
-  it('only admins can create projects and users', async () => {
-    await as('pm').post('/api/projects').send({ key: 'NOPE', name: 'Nope' }).expect(403);
+  it('non-admins can only self-serve a Team-managed project (and lead it); only admins manage users', async () => {
+    const res = await as('pm').post('/api/projects').send({ key: 'SELF', name: 'Self Serve' }).expect(201);
+    expect(res.body.management).toBe('TEAM');
+    const members = await as('pm').get(`/api/projects/${res.body.id}/members`).expect(200);
+    expect(members.body).toHaveLength(1);
+    expect(members.body[0].userId).toBe(ids.pm);
+    expect(members.body[0].role.name).toBe('Project Manager');
+
+    await as('pm').post('/api/projects').send({ key: 'NOPE', name: 'Nope', management: 'COMPANY' }).expect(403);
     await as('pm').post('/api/users').send({ email: 'a@b.cd', password: 'Passw0rd!', fullName: 'X' }).expect(403);
   });
 

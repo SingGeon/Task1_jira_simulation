@@ -71,7 +71,7 @@ export class CreateTaskDto {
   @IsUUID()
   assigneeId?: string;
 
-  @ApiPropertyOptional({ description: "Put directly in a sprint (requires 'sprint.manage'); backlog otherwise" })
+  @ApiPropertyOptional({ description: 'Put directly in a sprint; backlog otherwise' })
   @IsOptional()
   @IsUUID()
   sprintId?: string;
