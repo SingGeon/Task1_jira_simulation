@@ -84,4 +84,10 @@ export class TasksController {
   remove(@CurrentUser() user: User, @Param('idOrKey') idOrKey: string) {
     return this.tasks.remove(user, idOrKey);
   }
+
+  @Get('tasks/:idOrKey/activity')
+  @ApiOperation({ summary: "History: who changed what and when, newest first (like Jira's 'History' tab)" })
+  activity(@CurrentUser() user: User, @Param('idOrKey') idOrKey: string) {
+    return this.tasks.activityForTask(user, idOrKey);
+  }
 }

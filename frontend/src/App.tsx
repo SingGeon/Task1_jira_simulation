@@ -15,6 +15,7 @@ import { WorkflowPage } from './pages/WorkflowPage';
 import { AdminRolesPage } from './pages/AdminRolesPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
 import { AdminJoinRequestsPage } from './pages/AdminJoinRequestsPage';
+import { AdminActivityPage } from './pages/AdminActivityPage';
 import { ProfilePage } from './pages/ProfilePage';
 
 export default function App() {
@@ -44,6 +45,7 @@ export default function App() {
               <Route path="/admin/roles" element={<AdminRolesPage />} />
               <Route path="/admin/users" element={<AdminUsersPage />} />
               <Route path="/admin/join-requests" element={<AdminJoinRequestsPage />} />
+              <Route path="/admin/activity" element={<AdminActivityPage />} />
             </Route>
           </Route>
         </Route>

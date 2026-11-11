@@ -504,9 +504,37 @@ utilizatorul decide).
 
 ---
 
-## 17. Ce aș adăuga în continuare
+## 17. Istoric de activitate (jurnal)
 
-- Istoric de activitate pe task (cine a schimbat ce și când), ca „History” din Jira.
+**Cerința:** să se vadă cine a schimbat ce și când pe un task, ca tab-ul „History” din Jira — plus
+o privire de ansamblu pentru admin, peste toate proiectele.
+
+- **O linie pe câmp schimbat**, nu un singur blob JSON cu tot diff-ul: tabelul `task_activities` are
+  `field` / `fromValue` / `toValue` ca text simplu, deja formatat pentru afișare (ex. la `status`,
+  `fromValue` e numele statusului — „To Do” — nu id-ul lui). Motivul: citirea istoricului nu trebuie
+  să mai facă join-uri către status/sprint/epic/assignee ca să arate ceva inteligibil, iar valorile
+  rămân corecte chiar dacă acel status/sprint e redenumit sau șters mai târziu.
+- **`actorName` e un snapshot**, nu doar `actorId` + join: dacă admin rescrie numele cuiva (sau
+  contul e dezactivat), istoricul vechi tot arată numele de atunci. `actorId` rămâne totuși o FK
+  obișnuită (`RESTRICT`, la fel ca `reporterId`/`authorId` pe task-uri/comentarii) — ștergerea unui
+  cont care a lăsat urme în istoric e blocată, dezactivarea rămâne calea corectă (§5).
+- **Mai multe câmpuri schimbate într-un singur request (`PATCH /tasks/:id`) primesc exact același
+  `createdAt`**, setat o singură dată în `ActivityService.record()` înainte de insert — altfel
+  fiecare rând ar primi propriul timestamp și frontend-ul nu ar putea ști sigur că title+priority
+  s-au schimbat „în același moment”, ca o singură intrare Jira cu mai multe linii dedesubt.
+- Înregistrarea se face direct în `TasksService` (`update`/`transition`/`assign`/`moveToSprint`),
+  comparând starea dinainte (deja încărcată de `load()`) cu starea de după (`reload()`); un helper
+  `diff(field, from, to)` întoarce `[]` dacă valoarea nu s-a schimbat de fapt, ca liniile "Nothing to
+  update" să nu genereze zgomot în istoric.
+- **Două suprafețe de citire:** `GET /tasks/:idOrKey/activity` (orice membru al proiectului, ca la
+  comentarii — nicio permisiune suplimentară) pentru tab-ul „Istoric” din drawer-ul unui task; și
+  `GET /activity` (admin-only, paginat, filtrabil după proiect/utilizator) pentru o pagină nouă
+  „Jurnal” din secțiunea Admin a sidebar-ului, cu fiecare rând legat înapoi la task-ul lui.
+
+---
+
+## 18. Ce aș adăuga în continuare
+
 - Refresh tokens și revocarea sesiunilor.
 - Ordonare manuală (rank) a task-urilor în backlog și pe board.
 - Sub-task-uri (relații părinte–copil mai fine, în interiorul unei povești/task — diferit de epice,
@@ -518,7 +546,7 @@ utilizatorul decide).
 
 ---
 
-## 18. Jurnal de modificări
+## 19. Jurnal de modificări
 
 Pe scurt, în ordine cronologică, ce s-a schimbat după versiunea inițială și de ce (detaliile, mai
 sus, în secțiunea corespunzătoare):
@@ -541,3 +569,4 @@ sus, în secțiunea corespunzătoare):
 | Buton de ștergere proiect mutat pe rândul din sidebar (icoană coș de gunoi, la hover), nu un „✕” pe cardul din `/projects` | Cerut explicit; și mai practic — ștergi direct din sidebar, din orice pagină, fără să navighezi înapoi la „Toate proiectele”. |
 | Epice (§16): grupare de task-uri sub un epic, tab nou „Epice”, chip colorat pe carduri/rânduri | Cerut explicit; implementat ca `Task` cu `type=EPIC` + `epicId` pe celelalte task-uri, nu ca entitate separată, ca să refolosească toată infrastructura existentă. |
 | Pagina „Epice” rescrisă ca arbore expandabil (§16): chevron pe fiecare epic, task-urile legate apar indentate dedesubt la expand (lazy-load) | Cerut explicit, pe baza unui screenshot din Jira Cloud real („Timeline”); varianta anterioară (listă de carduri) nu permitea accesul direct la task-urile unui epic. |
+| Istoric de activitate pe task (§17): tab „Istoric” în drawer, plus pagină „Jurnal” pentru admin peste toate proiectele | Cerut explicit, ca tab-ul „History” din Jira; clarificat că „backlogul pentru admin” din cerere însemna de fapt jurnalul cine-a-făcut-ce, nu un backlog agregat. |

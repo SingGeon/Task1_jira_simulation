@@ -115,6 +115,10 @@ export function Sidebar() {
                 <span style={{ width: 24, textAlign: 'center' }}>◎</span>
                 <span>Utilizatori</span>
               </NavLink>
+              <NavLink to="/admin/activity" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
+                <span style={{ width: 24, textAlign: 'center' }}>▤</span>
+                <span>Jurnal</span>
+              </NavLink>
             </nav>
           </>
         )}

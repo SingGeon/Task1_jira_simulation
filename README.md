@@ -91,6 +91,7 @@ proiect, membri, regulile Developer/QA/PM, workflow, sprinturi, board Kanban, cr
 | Sprints | `GET/POST /projects/:id/sprints`, `GET/PATCH/DELETE .../sprints/:sid`, `POST .../sprints/:sid/start`, `POST .../sprints/:sid/complete` |
 | Tasks | `POST/GET /projects/:id/tasks` (filtre: `status, assignee=me|unassigned|<id>, label, sprintId, epicId, backlog, type, priority, q, sort`), `GET /projects/:id/board` *(fără epice)*, `GET /projects/:id/epics` *(epice + `taskCount`/`doneCount`)*, `GET/PATCH/DELETE /tasks/:idOrKey`, `GET/POST /tasks/:idOrKey/transitions`, `PUT /tasks/:idOrKey/assignee`, `PUT /tasks/:idOrKey/sprint` |
 | Comments | `GET/POST /tasks/:idOrKey/comments`, `PATCH/DELETE /comments/:id` |
+| Activity | `GET /tasks/:idOrKey/activity` *(istoric: cine a schimbat ce și când)*, `GET /activity` *(admin; peste toate proiectele, filtrabil `projectId`/`actorId`)* |
 
 Toate rutele au prefixul `/api`. Pe lângă REST, serverul expune și un canal **WebSocket**
 (Socket.IO, `/socket.io`) pentru actualizări live — vezi `docs/ARHITECTURA.md` §12.

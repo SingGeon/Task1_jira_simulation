@@ -293,6 +293,32 @@ describe('Task Tracker (e2e)', () => {
     expect(allBoardKeys).not.toContain(epic.body.key);
   });
 
+  it('records task activity (who changed what) and exposes it per-task and system-wide for admins', async () => {
+    const task = await as('pm').post(`/api/projects/${projectId}/tasks`).send({ title: 'Track me' }).expect(201);
+    const key = task.body.key;
+
+    await as('pm').patch(`/api/tasks/${key}`).send({ title: 'Tracked indeed', priority: 'HIGH' }).expect(200);
+    await as('pm').post(`/api/tasks/${key}/transitions`).send({ status: 'IN_PROGRESS' }).expect(200);
+    await as('pm').put(`/api/tasks/${key}/assignee`).send({ assigneeId: ids.dev }).expect(200);
+
+    const history = await as('dev').get(`/api/tasks/${key}/activity`).expect(200);
+    const fields = history.body.map((e: any) => e.field);
+    expect(fields).toEqual(expect.arrayContaining(['title', 'priority', 'status', 'assignee']));
+    const statusEntry = history.body.find((e: any) => e.field === 'status');
+    expect(statusEntry.fromValue).toBe('To Do');
+    expect(statusEntry.toValue).toBe('In Progress');
+    expect(statusEntry.actorName).toBeDefined();
+
+    // Updating two fields in the same request shares one timestamp (one "moment" in the history).
+    const titleEntry = history.body.find((e: any) => e.field === 'title');
+    const priorityEntry = history.body.find((e: any) => e.field === 'priority');
+    expect(titleEntry.createdAt).toBe(priorityEntry.createdAt);
+
+    await as('dev').get('/api/activity').expect(403);
+    const all = await as('admin').get('/api/activity').expect(200);
+    expect(all.body.items.some((e: any) => e.taskId === task.body.id)).toBe(true);
+  });
+
   // ---------------- extensibility ----------------
 
   it('a new role created by the admin works without code changes', async () => {

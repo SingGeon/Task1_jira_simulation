@@ -65,3 +65,20 @@ export function hueFromKey(key: string): number {
   for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) % 360;
   return h;
 }
+
+const ACTIVITY_FIELD_LABEL: Record<string, string> = {
+  title: 'Titlu',
+  description: 'Descriere',
+  type: 'Tip',
+  priority: 'Prioritate',
+  labels: 'Etichete',
+  storyPoints: 'Story points',
+  epic: 'Epic',
+  status: 'Status',
+  assignee: 'Assignee',
+  sprint: 'Sprint',
+};
+
+export function activityFieldLabel(field: string): string {
+  return ACTIVITY_FIELD_LABEL[field] ?? field;
+}

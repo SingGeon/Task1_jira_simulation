@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { ActivityService, diff } from '../activity/activity.service';
 import { AccessControlService } from '../access/access-control.service';
 import { Permission } from '../access/permission.enum';
 import { ProjectAccess } from '../access/project-access';
@@ -25,6 +26,10 @@ import {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function epicLabel(epic: Task | null): string | null {
+  return epic ? `${epic.key} — ${epic.title}` : null;
+}
+
 @Injectable()
 export class TasksService {
   constructor(
@@ -35,6 +40,7 @@ export class TasksService {
     private readonly workflow: WorkflowService,
     private readonly sprints: SprintsService,
     private readonly realtime: RealtimeGateway,
+    private readonly activity: ActivityService,
   ) {}
 
   // ---------- helpers ----------
@@ -163,8 +169,18 @@ export class TasksService {
       await this.resolveEpic(task.projectId, epicId);
     }
     await this.tasks.update(task.id, changes);
+    const updated = await this.reload(task.id);
+    await this.activity.record(task.id, user, [
+      ...diff('title', task.title, updated.title),
+      ...diff('description', task.description, updated.description),
+      ...diff('type', task.type, updated.type),
+      ...diff('priority', task.priority, updated.priority),
+      ...diff('labels', task.labels.join(', ') || null, updated.labels.join(', ') || null),
+      ...diff('storyPoints', task.storyPoints?.toString() ?? null, updated.storyPoints?.toString() ?? null),
+      ...diff('epic', epicLabel(task.epic), epicLabel(updated.epic)),
+    ]);
     this.realtime.broadcast(task.projectId);
-    return this.reload(task.id);
+    return updated;
   }
 
   async transition(user: User, idOrKey: string, dto: TransitionTaskDto): Promise<Task> {
@@ -180,6 +196,7 @@ export class TasksService {
       );
     }
     await this.tasks.update(task.id, { statusId: target.id });
+    await this.activity.record(task.id, user, diff('status', task.status.name, target.name));
     this.realtime.broadcast(task.projectId);
     return this.reload(task.id);
   }
@@ -199,8 +216,14 @@ export class TasksService {
     access.assert(Permission.TASK_ASSIGN, task);
     if (dto.assigneeId) await this.assertAssignable(task.projectId, dto.assigneeId);
     await this.tasks.update(task.id, { assigneeId: dto.assigneeId });
+    const updated = await this.reload(task.id);
+    await this.activity.record(
+      task.id,
+      user,
+      diff('assignee', task.assignee?.fullName ?? null, updated.assignee?.fullName ?? null),
+    );
     this.realtime.broadcast(task.projectId);
-    return this.reload(task.id);
+    return updated;
   }
 
   async moveToSprint(user: User, idOrKey: string, dto: MoveToSprintDto): Promise<Task> {
@@ -208,8 +231,20 @@ export class TasksService {
     access.assert(Permission.SPRINT_MANAGE);
     if (dto.sprintId) await this.resolveSprint(task.projectId, dto.sprintId);
     await this.tasks.update(task.id, { sprintId: dto.sprintId });
+    const updated = await this.reload(task.id);
+    await this.activity.record(
+      task.id,
+      user,
+      diff('sprint', task.sprint?.name ?? null, updated.sprint?.name ?? null),
+    );
     this.realtime.broadcast(task.projectId);
-    return this.reload(task.id);
+    return updated;
+  }
+
+  /** Activity history for one task, newest first. Any project member can view it. */
+  async activityForTask(user: User, idOrKey: string) {
+    const { task } = await this.load(user, idOrKey);
+    return this.activity.listForTask(task.id);
   }
 
   async remove(user: User, idOrKey: string): Promise<void> {
