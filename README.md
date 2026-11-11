@@ -81,7 +81,7 @@ proiect, membri, regulile Developer/QA/PM, workflow, sprinturi, board Kanban, cr
 |---|---|
 | Config | `GET /config/public` *(fără autentificare)* — feature flags pentru client |
 | Auth | `POST /auth/register`, `POST /auth/login` |
-| Users | `GET/PATCH /users/me`, `GET /users`, `GET /users/:id`, `POST /users` *(admin)*, `PATCH /users/:id` *(admin)* |
+| Users | `GET/PATCH /users/me`, `GET /users`, `GET /users/:id`, `POST /users` *(admin)*, `PATCH /users/:id` *(admin)*, `DELETE /users/:id` *(admin; fails if they authored tasks/comments — deactivate instead)* |
 | Roles | `GET /roles`, `GET /roles/permissions`, `POST/PATCH/DELETE /roles/:id` *(admin)* |
 | Projects | `POST /projects` *(admin: orice tip; altfel: doar Team-managed, devii PM)*, `GET /projects`, `GET /projects/directory` *(toate proiectele, pentru cereri de acces)*, `GET/PATCH /projects/:id`, `DELETE /projects/:id` *(admin)* |
 | Members | `GET/POST /projects/:id/members`, `PATCH/DELETE /projects/:id/members/:userId` |

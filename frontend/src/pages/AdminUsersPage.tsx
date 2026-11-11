@@ -23,7 +23,15 @@ export function AdminUsersPage() {
 
   useEffect(load, [load]);
 
-  if (error) return <ErrorBanner message={error} />;
+  const remove = async (u: User) => {
+    if (!confirm(`Ștergi definitiv contul lui ${u.fullName}? Nu se poate anula.`)) return;
+    try {
+      await api.delete(`/users/${u.id}`);
+      load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Ștergere eșuată');
+    }
+  };
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', padding: '28px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -39,7 +47,8 @@ export function AdminUsersPage() {
 
       <input className="input" style={{ maxWidth: 280 }} placeholder="Caută după nume sau e-mail…" value={q} onChange={(e) => setQ(e.target.value)} />
 
-      {!data && <Spinner />}
+      {error && <ErrorBanner message={error} />}
+      {!data && !error && <Spinner />}
       {data && (
         <div className="card scroll-x">
           <table>
@@ -71,7 +80,13 @@ export function AdminUsersPage() {
                   <td>
                     <span className={u.isActive ? 'pill pill-done' : 'pill pill-critical'}>{u.isActive ? 'Activ' : 'Dezactivat'}</span>
                   </td>
-                  <td />
+                  <td onClick={(e) => e.stopPropagation()}>
+                    {u.id !== me?.id && (
+                      <button className="btn btn-ghost" style={{ color: 'var(--danger)' }} onClick={() => remove(u)}>
+                        Șterge
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
