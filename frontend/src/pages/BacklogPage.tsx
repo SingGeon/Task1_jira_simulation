@@ -274,7 +274,7 @@ function GroupSection({
               <span style={{ textAlign: 'center', fontSize: 12, color: 'var(--muted)', fontVariantNumeric: 'tabular-nums' }}>
                 {t.storyPoints ?? ''}
               </span>
-              {t.assignee ? <Avatar name={t.assignee.fullName} size={24} /> : <span />}
+              <Avatar name={t.assignee?.fullName} size={24} unassigned={!t.assignee} />
             </button>
           ))}
           {tasks.length === 0 && (

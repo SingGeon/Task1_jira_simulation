@@ -238,8 +238,10 @@ export function TaskDrawer({
                 <UserPicker value={task.assignee} onChange={assign} placeholder="Neasignat — caută un membru" />
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {task.assignee ? <Avatar name={task.assignee.fullName} /> : null}
-                  <span style={{ fontSize: 13 }}>{task.assignee?.fullName ?? 'Neasignat'}</span>
+                  <Avatar name={task.assignee?.fullName} unassigned={!task.assignee} />
+                  <span style={{ fontSize: 13, color: task.assignee ? 'var(--ink)' : 'var(--muted)' }}>
+                    {task.assignee?.fullName ?? 'Neasignat'}
+                  </span>
                 </div>
               )}
             </div>

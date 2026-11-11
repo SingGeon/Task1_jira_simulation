@@ -118,15 +118,15 @@ export function BoardPage() {
                 background: dragOverColumn === col.status.id ? 'var(--accent-soft)' : 'var(--surface-sunken)',
                 borderRadius: 'var(--radius-lg)',
                 padding: 10,
-                border: dragOverColumn === col.status.id ? '1px dashed var(--accent)' : '1px solid transparent',
+                border: dragOverColumn === col.status.id ? '1px dashed var(--accent)' : '1px solid var(--border)',
                 transition: 'background 0.1s ease, border-color 0.1s ease',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
                 <span className={categoryPillClass(col.status.category)}>{col.status.name}</span>
-                <span style={{ fontSize: 12, color: 'var(--muted)' }}>{col.tasks.length}</span>
+                <span style={{ fontSize: 12, color: 'var(--muted)', fontVariantNumeric: 'tabular-nums' }}>{col.tasks.length}</span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', flex: 1 }}>
                 {col.tasks.map((t) => (
                   <TaskCard
                     key={t.id}
@@ -144,7 +144,21 @@ export function BoardPage() {
                   />
                 ))}
                 {col.tasks.length === 0 && (
-                  <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '10px 0' }}>Gol</p>
+                  <div
+                    style={{
+                      flex: 1,
+                      minHeight: 64,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      border: '1.5px dashed var(--border)',
+                      borderRadius: 'var(--radius)',
+                      fontSize: 12,
+                      color: 'var(--muted)',
+                    }}
+                  >
+                    Fără task-uri
+                  </div>
                 )}
               </div>
             </div>

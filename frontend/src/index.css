@@ -268,6 +268,17 @@ textarea:focus-visible,
   border-radius: var(--radius-lg);
 }
 
+.task-card {
+  box-shadow: 0 1px 2px rgba(10, 16, 15, 0.04);
+  transition: box-shadow 0.14s ease, border-color 0.14s ease, transform 0.14s ease;
+}
+
+.task-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 4px 14px -6px rgba(10, 16, 15, 0.22);
+  transform: translateY(-1px);
+}
+
 .pill {
   display: inline-flex;
   align-items: center;
@@ -376,6 +387,13 @@ textarea:focus-visible,
   font-size: 11px;
   font-weight: 600;
   font-family: var(--font-display);
+  flex: none;
+}
+
+.avatar-unassigned {
+  background: transparent;
+  border: 1.5px dashed var(--border-strong);
+  color: var(--muted);
 }
 
 .error-banner {
@@ -427,4 +445,8 @@ tbody tr:hover {
 
 .scroll-x {
   overflow-x: auto;
+}
+
+.nav-tab {
+  transition: background 0.12s ease, color 0.12s ease;
 }
