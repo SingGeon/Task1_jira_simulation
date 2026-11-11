@@ -488,6 +488,19 @@ utilizatorul decide).
 - Frontend: un tab nou „Epice” per proiect, cu un chip colorat (culoare derivată determinist din
   cheia epicului, ca la pătratele proiectelor din sidebar — §11) afișat pe cardurile de task/rândurile
   de backlog care au un epic asociat.
+- **Pagina „Epice" e un arbore expandabil** (ca „Timeline" din Jira Cloud), nu o listă de carduri:
+  fiecare epic e un rând cu un chevron; click pe chevron încarcă (lazy, o singură dată) task-urile
+  legate prin `GET /projects/:id/tasks?epicId=<id>` și le afișează indentate dedesubt, fiecare cu
+  propriul status, assignee și titlu tăiat-cu-linie dacă e „Done". Am ales lazy-load la expand (nu
+  totul deodată la încărcarea paginii) fiindcă un proiect cu multe epice n-ar trebui să tragă toate
+  task-urile din proiect doar ca să arate o listă de epice; costul se plătește doar când utilizatorul
+  chiar vrea să vadă detaliile unui epic anume. Rândul de epic și rândul de task-copil sunt butoane
+  separate (nu un `<button>` în interiorul altui `<button>`, HTML invalid) — unul pentru toggle,
+  unul pentru deschiderea drawer-ului de task.
+
+  > **Notă (schimbare ulterioară):** varianta inițială a paginii era o listă plată de carduri, cu bara
+  > de progres dar fără acces direct la task-urile din epic. Cerut explicit, pe baza unui screenshot
+  > din Jira Cloud real al utilizatorului, să arate ca un arbore ierarhic expandabil.
 
 ---
 
@@ -527,3 +540,4 @@ sus, în secțiunea corespunzătoare):
 | `DELETE /users/:id`: ștergere reală de cont, nu doar dezactivare (§5) | Cerut explicit („nu poți să ștergi conturi”); blocat totuși dacă userul a creat task-uri/comentarii, ca istoricul proiectului să nu dispară — dezactivarea rămâne calea pentru acel caz. |
 | Buton de ștergere proiect mutat pe rândul din sidebar (icoană coș de gunoi, la hover), nu un „✕” pe cardul din `/projects` | Cerut explicit; și mai practic — ștergi direct din sidebar, din orice pagină, fără să navighezi înapoi la „Toate proiectele”. |
 | Epice (§16): grupare de task-uri sub un epic, tab nou „Epice”, chip colorat pe carduri/rânduri | Cerut explicit; implementat ca `Task` cu `type=EPIC` + `epicId` pe celelalte task-uri, nu ca entitate separată, ca să refolosească toată infrastructura existentă. |
+| Pagina „Epice” rescrisă ca arbore expandabil (§16): chevron pe fiecare epic, task-urile legate apar indentate dedesubt la expand (lazy-load) | Cerut explicit, pe baza unui screenshot din Jira Cloud real („Timeline”); varianta anterioară (listă de carduri) nu permitea accesul direct la task-urile unui epic. |
