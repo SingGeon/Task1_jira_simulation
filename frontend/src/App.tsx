@@ -30,6 +30,8 @@ export default function App() {
             <Route path="/" element={<Navigate to="/projects" replace />} />
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
+            {/* Not admin-only: a project manager sees/decides requests for their own projects too (§13). */}
+            <Route path="/admin/join-requests" element={<AdminJoinRequestsPage />} />
 
             <Route path="/projects/:projectId" element={<ProjectLayout />}>
               <Route index element={<Navigate to="board" replace />} />
@@ -44,7 +46,6 @@ export default function App() {
             <Route element={<AdminRoute />}>
               <Route path="/admin/roles" element={<AdminRolesPage />} />
               <Route path="/admin/users" element={<AdminUsersPage />} />
-              <Route path="/admin/join-requests" element={<AdminJoinRequestsPage />} />
               <Route path="/admin/activity" element={<AdminActivityPage />} />
             </Route>
           </Route>

@@ -406,8 +406,6 @@ manual ca membru. Am adăugat un flux de cerere → aprobare, modulul `src/join-
   acces, deci listă goală.
 - **Aprobarea** (`POST /join-requests/:id/approve`) apelează direct `ProjectsService.addMember()`
   — adaugă membrul cu rolul exact cerut, fără cod duplicat.
-- Am ales **adminul ca aprobator unic** (nu și PM-ul proiectului respectiv), ca să rămână simplu de
-  văzut unde se decide — o singură coadă, o singură pagină de admin (`/admin/join-requests`).
 
 > **Notă (schimbare ulterioară): cererea funcționează și pentru schimbarea rolului, nu doar pentru
 > alăturare.** Cerința inițială era doar „vreau acces la acest proiect”, dar un membru existent
@@ -416,7 +414,21 @@ manual ca membru. Am adăugat un flux de cerere → aprobare, modulul `src/join-
 > deja membru, poți tot trimite o cerere (cu alt rol decât cel curent), iar `approve()` detectează
 > automat cazul și apelează `changeRole()` în loc de `addMember()`. Am ales să **nu** creez o entitate
 > separată pentru asta — e aceeași formă de date (`{ project, rol dorit, mesaj }`) și aceeași coadă
-> de aprobare a adminului, doar efectul diferă în funcție de apartenența existentă.
+> de aprobare, doar efectul diferă în funcție de apartenența existentă.
+
+> **Notă (schimbare ulterioară): aprobarea nu mai e doar a adminului — și PM-ul proiectului poate
+> decide.** Inițial `pending()`/`approve()`/`reject()` erau `@AdminOnly()`. Cerut explicit ca
+> PM-ul proiectului respectiv (orice rol cu `project.members.manage`, nu neapărat admin) să poată
+> decide singur cererile pentru *proiectul lui*, fără să treacă prin admin de fiecare dată. Am scos
+> `@AdminOnly()` și am mutat verificarea în service: `getPending()` cere `acl.forProject(actor,
+> req.projectId).assert('project.members.manage')` — admin trece automat (bypass-ul existent din
+> §6), un PM trece dacă rolul lui are acel grant, oricine altcineva ia 403 (sau 404 dacă nici măcar
+> nu e membru al proiectului — nu-i dezvăluim că proiectul există). `listPending()` filtrează la
+> fel: un admin vede toate cererile din sistem, un PM doar pe cele din proiectele unde are
+> `project.members.manage` (`AccessControlService.projectIdsWithPermission()`, nou), restul
+> utilizatorilor văd o listă goală — aceeași rută `GET /join-requests`, niciun endpoint nou.
+> Pagina `/admin/join-requests` din frontend a rămas la aceeași adresă, dar nu mai e în spatele
+> `AdminRoute` — linkul „Cereri” din sidebar e acum vizibil pentru toată lumea, nu doar pentru admin.
 
 ---
 
@@ -587,7 +599,6 @@ revoca o sesiune (dacă bănuiești că ți s-a compromis contul de pe un dispoz
 - Ordonare manuală (rank) a task-urilor în backlog și pe board.
 - Sub-task-uri (relații părinte–copil mai fine, în interiorul unei povești/task — diferit de epice,
   care grupează la un nivel mai sus; vezi §16).
-- Aprobare de către PM-ul proiectului, nu doar admin, pentru cererile de acces (§13).
 - Notificare (in-app sau email) când primești un invite sau ți se decide o cerere, în loc să trebuiască
   să verifici pagina.
 
@@ -619,3 +630,4 @@ sus, în secțiunea corespunzătoare):
 | Istoric de activitate pe task (§17): tab „Istoric” în drawer, plus pagină „Jurnal” pentru admin peste toate proiectele | Cerut explicit, ca tab-ul „History” din Jira; clarificat că „backlogul pentru admin” din cerere însemna de fapt jurnalul cine-a-făcut-ce, nu un backlog agregat. |
 | Refresh tokens + revocarea sesiunilor (§18): access token scurt (15m), refresh token revocabil (30d) cu rotație și detecție de refolosire, pagină „Sesiuni active” în Profil | Cerut explicit, de pe lista „ce aș adăuga”; access token-ul de 1 zi fără nicio cale de revocare era un risc real dacă un token ar fi fost furat. |
 | Rate limiting pe `/auth/*` (§19): `ThrottlerGuard` pe `AuthController`, 20 cereri/minut per IP | Cerut explicit, de pe lista „ce aș adăuga”; nicio rută de autentificare nu avea protecție la brute-force. |
+| PM-ul proiectului poate aproba/respinge cereri de acces (§13), nu doar admin | Cerut explicit, de pe lista „ce aș adăuga”; linkul „Cereri” din sidebar e acum vizibil pentru toată lumea, filtrat de backend după `project.members.manage`. |

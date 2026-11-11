@@ -164,6 +164,40 @@ describe('Task Tracker (e2e)', () => {
     expect(me.body.myPermissions).not.toContain('sprint.manage');
   });
 
+  it('a project manager (not just admin) can approve/reject join requests for their own project', async () => {
+    const applicant = await http
+      .post('/api/auth/register')
+      .send({ email: 'applicant@test.local', password: 'Passw0rd!', fullName: 'Applicant' })
+      .expect(201);
+    const applicantToken = applicant.body.accessToken;
+    const applicantId = applicant.body.user.id;
+
+    await http
+      .post('/api/join-requests')
+      .set('Authorization', `Bearer ${applicantToken}`)
+      .send({ projectId, roleId: roles.Developer, message: 'I know this codebase.' })
+      .expect(201);
+
+    // Dev manages no projects (lacks 'project.members.manage'), so their view is empty...
+    const devPending = await as('dev').get('/api/join-requests').expect(200);
+    expect(devPending.body).toEqual([]);
+
+    // ...and the PM's view (who does have it on this project) shows the request.
+    const pmPending = await as('pm').get('/api/join-requests').expect(200);
+    const reqRow = pmPending.body.find((r: any) => r.userId === applicantId);
+    expect(reqRow).toBeDefined();
+
+    // Being a project member isn't enough without the permission itself.
+    await as('dev').post(`/api/join-requests/${reqRow.id}/approve`).expect(403);
+
+    const approved = await as('pm').post(`/api/join-requests/${reqRow.id}/approve`).expect(201);
+    expect(approved.body.status).toBe('APPROVED');
+    expect(approved.body.decidedBy.id).toBe(ids.pm);
+
+    const members = await as('pm').get(`/api/projects/${projectId}/members`).expect(200);
+    expect(members.body.some((m: any) => m.userId === applicantId && m.role.name === 'Developer')).toBe(true);
+  });
+
   // ---------------- tasks & RBAC ----------------
 
   it('creates tasks with sequential keys and validates input', async () => {

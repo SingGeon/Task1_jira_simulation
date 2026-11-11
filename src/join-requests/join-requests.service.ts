@@ -1,6 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
+import { AccessControlService } from '../access/access-control.service';
+import { Permission } from '../access/permission.enum';
 import { Project } from '../projects/project.entity';
 import { ProjectMember } from '../projects/project-member.entity';
 import { ProjectsService } from '../projects/projects.service';
@@ -19,6 +21,7 @@ export class JoinRequestsService {
     @InjectRepository(ProjectMember) private readonly members: Repository<ProjectMember>,
     private readonly roles: RolesService,
     private readonly projectsService: ProjectsService,
+    private readonly acl: AccessControlService,
   ) {}
 
   async create(user: User, dto: CreateJoinRequestDto): Promise<JoinRequest> {
@@ -55,16 +58,19 @@ export class JoinRequestsService {
     return this.requests.find({ where: { userId: user.id }, relations: RELATIONS, order: { createdAt: 'DESC' } });
   }
 
-  listPending(): Promise<JoinRequest[]> {
+  /** Admins see every pending request; a project manager only sees the ones for projects they manage. */
+  async listPending(user: User): Promise<JoinRequest[]> {
+    const projectIds = await this.acl.projectIdsWithPermission(user, Permission.MEMBERS_MANAGE);
+    if (projectIds !== null && projectIds.length === 0) return [];
     return this.requests.find({
-      where: { status: JoinRequestStatus.PENDING },
+      where: { status: JoinRequestStatus.PENDING, ...(projectIds ? { projectId: In(projectIds) } : {}) },
       relations: RELATIONS,
       order: { createdAt: 'ASC' },
     });
   }
 
-  async approve(admin: User, id: string): Promise<JoinRequest> {
-    const req = await this.getPending(id);
+  async approve(actor: User, id: string): Promise<JoinRequest> {
+    const req = await this.getPending(actor, id);
     const isMember = await this.members.exist({ where: { projectId: req.projectId, userId: req.userId } });
     if (isMember) {
       await this.projectsService.changeRole(req.projectId, req.userId, { roleId: req.roleId });
@@ -73,26 +79,29 @@ export class JoinRequestsService {
     }
     await this.requests.update(req.id, {
       status: JoinRequestStatus.APPROVED,
-      decidedById: admin.id,
+      decidedById: actor.id,
       decidedAt: new Date(),
     });
     return this.reload(req.id);
   }
 
-  async reject(admin: User, id: string): Promise<JoinRequest> {
-    const req = await this.getPending(id);
+  async reject(actor: User, id: string): Promise<JoinRequest> {
+    const req = await this.getPending(actor, id);
     await this.requests.update(req.id, {
       status: JoinRequestStatus.REJECTED,
-      decidedById: admin.id,
+      decidedById: actor.id,
       decidedAt: new Date(),
     });
     return this.reload(req.id);
   }
 
-  private async getPending(id: string): Promise<JoinRequest> {
+  /** Loads a pending request and requires `project.members.manage` on its project (admin or PM). */
+  private async getPending(actor: User, id: string): Promise<JoinRequest> {
     const req = await this.requests.findOne({ where: { id } });
     if (!req) throw new NotFoundException('Request not found');
     if (req.status !== JoinRequestStatus.PENDING) throw new BadRequestException('Request was already decided');
+    const access = await this.acl.forProject(actor, req.projectId);
+    access.assert(Permission.MEMBERS_MANAGE);
     return req;
   }
 

@@ -42,4 +42,14 @@ export class AccessControlService {
     });
     return !!m && grantsAllow(m.role.grants, Permission.TASK_ASSIGNABLE, userId);
   }
+
+  /**
+   * Project ids where the user's role grants `permission` — `null` for an admin, meaning
+   * "every project" (admins bypass per-project grants entirely, same as everywhere else).
+   */
+  async projectIdsWithPermission(user: User, permission: Permission): Promise<string[] | null> {
+    if (user.systemRole === SystemRole.ADMIN) return null;
+    const memberships = await this.members.find({ where: { userId: user.id }, relations: { role: true } });
+    return memberships.filter((m) => grantsAllow(m.role.grants, permission, user.id)).map((m) => m.projectId);
+  }
 }

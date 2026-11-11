@@ -96,6 +96,13 @@ export function Sidebar() {
           <span style={{ width: 24, textAlign: 'center' }}>···</span>
           <span>Toate proiectele</span>
         </NavLink>
+        {/* Vizibil pentru toată lumea: un admin vede cererile din toate proiectele, un
+            Project Manager doar pe cele din proiectele pe care le gestionează (backend-ul
+            filtrează — vezi §13 din ARHITECTURA.md), oricine altcineva vede o listă goală. */}
+        <NavLink to="/admin/join-requests" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`} style={{ marginTop: 2 }}>
+          <span style={{ width: 24, textAlign: 'center' }}>✉</span>
+          <span>Cereri</span>
+        </NavLink>
 
         {isAdmin && (
           <>
@@ -103,10 +110,6 @@ export function Sidebar() {
               Admin
             </div>
             <nav style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <NavLink to="/admin/join-requests" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
-                <span style={{ width: 24, textAlign: 'center' }}>✉</span>
-                <span>Cereri</span>
-              </NavLink>
               <NavLink to="/admin/roles" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
                 <span style={{ width: 24, textAlign: 'center' }}>◆</span>
                 <span>Roluri</span>
