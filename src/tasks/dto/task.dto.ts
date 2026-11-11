@@ -75,6 +75,11 @@ export class CreateTaskDto {
   @IsOptional()
   @IsUUID()
   sprintId?: string;
+
+  @ApiPropertyOptional({ description: 'Epic this task belongs to (must be an EPIC in the same project)' })
+  @IsOptional()
+  @IsUUID()
+  epicId?: string;
 }
 
 /** Plain field edits. Status, assignee and sprint have dedicated endpoints (different permissions). */
@@ -117,6 +122,12 @@ export class UpdateTaskDto {
   @Min(0)
   @Max(100)
   storyPoints?: number | null;
+
+  @ApiPropertyOptional({ nullable: true, description: 'null removes the task from its epic' })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsUUID()
+  epicId?: string | null;
 }
 
 export class TransitionTaskDto {
@@ -162,6 +173,11 @@ export class ListTasksQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsUUID()
   sprintId?: string;
+
+  @ApiPropertyOptional({ description: 'Only tasks linked to this epic' })
+  @IsOptional()
+  @IsUUID()
+  epicId?: string;
 
   @ApiPropertyOptional({ description: 'true = only tasks not in any sprint' })
   @IsOptional()

@@ -1,5 +1,6 @@
 import type { Task } from '../lib/types';
 import { Avatar } from './Avatar';
+import { EpicChip } from './EpicChip';
 import { priorityPillClass, typeIcon } from '../lib/format';
 
 export function TaskCard({
@@ -33,6 +34,11 @@ export function TaskCard({
       }}
     >
       <p style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.35 }}>{task.title}</p>
+      {task.epic && (
+        <div>
+          <EpicChip epic={task.epic} />
+        </div>
+      )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
         <span className="mono" style={{ fontSize: 11, color: 'var(--muted)' }}>
           {typeIcon(task.type)} {task.key}

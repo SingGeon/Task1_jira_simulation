@@ -36,6 +36,12 @@ export class TasksController {
     return this.tasks.board(user, projectId, q);
   }
 
+  @Get('projects/:projectId/epics')
+  @ApiOperation({ summary: 'Epics in this project, each with linked/done task counts' })
+  listEpics(@CurrentUser() user: User, @Param('projectId', ParseUUIDPipe) projectId: string) {
+    return this.tasks.listEpics(user, projectId);
+  }
+
   @Get('tasks/:idOrKey')
   @ApiOperation({ summary: 'Get a task by id or key (e.g. WEB-12)' })
   async get(@CurrentUser() user: User, @Param('idOrKey') idOrKey: string) {

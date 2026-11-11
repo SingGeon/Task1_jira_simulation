@@ -9,6 +9,7 @@ import { ProjectLayout } from './pages/ProjectLayout';
 import { BoardPage } from './pages/BoardPage';
 import { BacklogPage } from './pages/BacklogPage';
 import { SprintsPage } from './pages/SprintsPage';
+import { EpicsPage } from './pages/EpicsPage';
 import { MembersPage } from './pages/MembersPage';
 import { WorkflowPage } from './pages/WorkflowPage';
 import { AdminRolesPage } from './pages/AdminRolesPage';
@@ -34,6 +35,7 @@ export default function App() {
               <Route path="board" element={<BoardPage />} />
               <Route path="backlog" element={<BacklogPage />} />
               <Route path="sprints" element={<SprintsPage />} />
+              <Route path="epics" element={<EpicsPage />} />
               <Route path="members" element={<MembersPage />} />
               <Route path="workflow" element={<WorkflowPage />} />
             </Route>
