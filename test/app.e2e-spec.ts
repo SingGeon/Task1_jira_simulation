@@ -434,4 +434,13 @@ describe('Task Tracker (e2e)', () => {
     expect(t3.body.assigneeId).toBeNull();
     await as('qa').get(`/api/tasks/${ids.t3}`).expect(404);
   });
+
+  // Last test on purpose: it deliberately exhausts this route's rate-limit budget for the
+  // current minute, which would make any later test on the same route fail with 429.
+  it('throttles rapid-fire requests to /auth/* (brute-force protection)', async () => {
+    const bursts = Array.from({ length: 25 }, () => as('admin').get('/api/auth/sessions'));
+    const results = await Promise.all(bursts);
+    expect(results.some((r) => r.status === 200)).toBe(true);
+    expect(results.some((r) => r.status === 429)).toBe(true);
+  });
 });
