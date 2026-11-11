@@ -486,6 +486,45 @@ tbody tr:hover {
   color: var(--accent-ink);
 }
 
+.sidebar-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.sidebar-row .sidebar-link {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  border-radius: var(--radius);
+  opacity: 0;
+  transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.sidebar-row:hover .sidebar-delete-btn {
+  opacity: 1;
+}
+
+.sidebar-delete-btn:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.sidebar-delete-btn:focus-visible {
+  opacity: 1;
+}
+
 .sidebar-link-muted {
   color: var(--muted);
   font-size: 13px;
