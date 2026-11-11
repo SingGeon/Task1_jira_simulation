@@ -91,6 +91,18 @@ export class UsersService {
     return this.findById(id);
   }
 
+  async remove(actor: User, id: string): Promise<void> {
+    const user = await this.findById(id);
+    if (actor.id === id) throw new BadRequestException('You cannot delete your own account');
+    if (user.systemRole === SystemRole.ADMIN) {
+      const activeAdmins = await this.users.count({ where: { systemRole: SystemRole.ADMIN, isActive: true } });
+      if (activeAdmins <= 1) throw new BadRequestException('Cannot delete the last active administrator');
+    }
+    // Fails with 409 (DbExceptionFilter) if the user still has authored tasks/comments —
+    // deactivate instead if you need to keep their history.
+    await this.users.delete(id);
+  }
+
   async updateMe(me: User, dto: UpdateMeDto): Promise<User> {
     if (dto.fullName !== undefined) await this.users.update(me.id, { fullName: dto.fullName });
     if (dto.newPassword) {

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AdminOnly } from '../common/decorators/admin-only.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -46,5 +46,17 @@ export class UsersController {
   @ApiOperation({ summary: '[Admin] Update a user (system role, active flag, password reset)' })
   update(@CurrentUser() actor: User, @Param('id', ParseUUIDPipe) id: string, @Body() dto: AdminUpdateUserDto) {
     return this.users.adminUpdate(actor, id, dto);
+  }
+
+  @Delete(':id')
+  @AdminOnly()
+  @HttpCode(204)
+  @ApiOperation({
+    summary:
+      '[Admin] Permanently delete a user account. Fails if they authored tasks/comments ' +
+      "(deactivate instead to keep history); can't delete yourself or the last admin.",
+  })
+  remove(@CurrentUser() actor: User, @Param('id', ParseUUIDPipe) id: string) {
+    return this.users.remove(actor, id);
   }
 }

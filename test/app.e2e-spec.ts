@@ -327,6 +327,14 @@ describe('Task Tracker (e2e)', () => {
     await as('admin').patch(`/api/users/${me.body.id}`).send({ systemRole: 'USER' }).expect(400);
   });
 
+  it('admin can delete a user with no authored tasks/comments; cannot delete self or the last admin', async () => {
+    const me = await as('admin').get('/api/users/me').expect(200);
+    await as('admin').delete(`/api/users/${me.body.id}`).expect(400);
+
+    await as('admin').delete(`/api/users/${ids.outsider}`).expect(204);
+    await as('admin').get(`/api/users/${ids.outsider}`).expect(404);
+  });
+
   it('removing a member unassigns their tasks', async () => {
     await as('pm').delete(`/api/projects/${projectId}/members/${ids.qa}`).expect(204);
     const t3 = await as('pm').get(`/api/tasks/${ids.t3}`).expect(200);

@@ -148,6 +148,15 @@ Decizii la nivel de model:
   există încă niciun admin. Ultimul admin activ nu poate fi retrogradat sau dezactivat, ca să nu
   rămână sistemul fără administrator.
 
+> **Notă (schimbare ulterioară): ștergere reală de cont, nu doar dezactivare.** Inițial admin putea
+> doar dezactiva un cont (`isActive = false`) — nu exista `DELETE /users/:id`. Cerința a fost explicit
+> „nu poți să ștergi conturi”, deci am adăugat ștergerea efectivă (`UsersService.remove`), cu aceleași
+> protecții ca la retrogradare: nu te poți șterge pe tine însuți, nu poți șterge ultimul admin activ.
+> **Ștergerea eșuează cu 409** dacă utilizatorul a creat task-uri sau comentarii (`reporterId` /
+> `authorId` sunt `RESTRICT` în schema — §4) — intenționat, ca istoricul proiectului să nu dispară
+> tăcut; dacă ai nevoie să elimini accesul fără să pierzi istoricul, dezactivarea rămâne calea corectă.
+> Apartenențele la proiecte (`ProjectMember`) sunt `CASCADE`, deci acelea se șterg automat.
+
 ---
 
 ## 6. Motorul de permisiuni (RBAC cu condiții)
@@ -322,6 +331,19 @@ Backend-ul inițial nu avea interfață — doar API + Swagger. Am construit un 
 | Detaliile unui task se deschid într-un **drawer** (panou lateral), nu pe o pagină separată | Păstrează contextul board-ului/backlog-ului vizibil; e controlat prin query string (`?task=WEB-12`), deci e și linkuibil. |
 | Drag-and-drop pe Board (HTML5 nativ, fără librărie) | La drop se apelează tranziția de status existentă; dacă workflow-ul n-o permite, cardul revine pe loc cu eroare. Nu am adăugat o librărie de DnD pentru o singură interacțiune. |
 
+> **Notă (schimbare ulterioară): navigare din bară laterală, stil Jira, în loc de tab-uri sus.**
+> Inițial, proiectele erau doar o pagină (`/projects`) la care te întorceai ca să schimbi proiectul.
+> Cerut explicit: o bară fixă în stânga (`components/Sidebar.tsx`) cu toate proiectele tale, fiecare
+> cu un pătrat colorat derivat determinist din cheia proiectului (hash simplu → nuanță HSL), plus o
+> secțiune „Admin” separată printr-un divizor. Bara de sus a rămas doar pentru profil/logout — nu mai
+> are nevoie de taburi de navigare, acelea au trecut în sidebar. Pagina `/projects` a rămas accesibilă
+> din „Toate proiectele” — acolo stau în continuare creare/cereri/invitații, care n-ar încăpea firesc
+> într-o bară laterală îngustă.
+>
+> **Scris și butoane mai mari:** am mărit corpul de text (14→15px), padding-ul butoanelor/input-urilor
+> și titlurile (`h1`–`h3`) — fuseseră dimensionate pentru densitate maximă de informație, dar citeau ca
+> prea mici pentru utilizare prelungită.
+
 ### Sesiunea: `sessionStorage`, nu `localStorage`
 
 **Important, fiindcă a fost o greșeală inițială găsită în test:** token-ul JWT era ținut în
@@ -472,3 +494,5 @@ sus, în secțiunea corespunzătoare):
 | Invitații directe către un cont, cu accept/refuz (§15) | Pe lângă cererea inițiată de utilizator, cineva cu drept de gestionare a membrilor trebuie să poată oferi acces direct unui cont anume. |
 | Cererile de acces funcționează și pentru schimbarea rolului unui membru existent (§13) | Un membru existent (ex. Viewer) nu avea nicio cale să ceară un alt rol, doar admin/PM îl putea schimba din proprie inițiativă. |
 | Polish vizual general (§11): avatar „neasignat” cu contur punctat în loc de „?”, umbră/elevație la hover pe cardurile de task, coloane goale pe board ca drop-zone punctat, separatoare și hover în navigare | Interfața funcționa corect, dar câteva detalii vizuale citeau ca neintenționate sau plate (ex. „?” pe un avatar arăta ca o eroare), nu ca o decizie de design. |
+| Navigare mutată într-un sidebar fix, stil Jira, cu proiecte colorate distinct (§11); scris și butoane mărite | Cerut explicit; tab-urile de sus pentru proiecte nu scalau bine cu mai multe proiecte, iar textul/butoanele erau prea mici pentru utilizare prelungită. |
+| `DELETE /users/:id`: ștergere reală de cont, nu doar dezactivare (§5) | Cerut explicit („nu poți să ștergi conturi”); blocat totuși dacă userul a creat task-uri/comentarii, ca istoricul proiectului să nu dispară — dezactivarea rămâne calea pentru acel caz. |
