@@ -78,16 +78,6 @@ export function ProjectsPage() {
     }
   };
 
-  const removeProject = async (p: Project) => {
-    if (!confirm(`Ștergi definitiv proiectul "${p.name}" (${p.key})? Toate task-urile lui se pierd. Nu se poate anula.`)) return;
-    try {
-      await api.delete(`/projects/${p.id}`);
-      load();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Ștergere eșuată');
-    }
-  };
-
   const canCreate = isAdmin || !!publicConfig?.teamProjectsEnabled;
   const pendingInvites = (myInvites ?? []).filter((i) => i.status === InviteStatus.PENDING);
 
@@ -181,64 +171,36 @@ export function ProjectsPage() {
       {projects && projects.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
           {projects.map((p) => (
-            <div key={p.id} className="card" style={{ position: 'relative', padding: 16 }}>
-              {isAdmin && (
-                <button
-                  className="btn btn-ghost"
-                  title="Șterge proiectul"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeProject(p);
-                  }}
+            <button
+              key={p.id}
+              className="card"
+              onClick={() => navigate(`/projects/${p.id}/board`)}
+              style={{ textAlign: 'left', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span
+                  className="mono"
                   style={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 8,
-                    padding: '4px 8px',
-                    color: 'var(--muted)',
-                    zIndex: 1,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    background: 'var(--accent-soft)',
+                    color: 'var(--accent-ink)',
+                    padding: '2px 7px',
+                    borderRadius: 4,
                   }}
                 >
-                  ✕
-                </button>
+                  {p.key}
+                </span>
+                <span className="pill pill-todo">{p.boardType === BoardType.SCRUM ? 'Scrum' : 'Kanban'}</span>
+                <span className="pill pill-todo">{p.management === ProjectManagement.COMPANY ? 'Company-managed' : 'Team-managed'}</span>
+              </div>
+              <h2>{p.name}</h2>
+              {p.description && (
+                <p style={{ color: 'var(--muted)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                  {p.description}
+                </p>
               )}
-              <button
-                onClick={() => navigate(`/projects/${p.id}/board`)}
-                style={{
-                  all: 'unset',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 10,
-                  width: '100%',
-                  paddingRight: isAdmin ? 26 : 0,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span
-                    className="mono"
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      background: 'var(--accent-soft)',
-                      color: 'var(--accent-ink)',
-                      padding: '2px 7px',
-                      borderRadius: 4,
-                    }}
-                  >
-                    {p.key}
-                  </span>
-                  <span className="pill pill-todo">{p.boardType === BoardType.SCRUM ? 'Scrum' : 'Kanban'}</span>
-                  <span className="pill pill-todo">{p.management === ProjectManagement.COMPANY ? 'Company-managed' : 'Team-managed'}</span>
-                </div>
-                <h2>{p.name}</h2>
-                {p.description && (
-                  <p style={{ color: 'var(--muted)', fontSize: 13, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                    {p.description}
-                  </p>
-                )}
-              </button>
-            </div>
+            </button>
           ))}
         </div>
       )}

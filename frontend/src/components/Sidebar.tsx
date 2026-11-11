@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { hueFromKey } from '../lib/format';
 import type { Project } from '../lib/types';
@@ -9,10 +9,21 @@ export function Sidebar() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = () => {
     api.get<Project[]>('/projects').then(setProjects).catch(() => setProjects([]));
-  }, []);
+  };
+
+  useEffect(load, []);
+
+  const removeProject = (p: Project) => {
+    if (!confirm(`Ștergi definitiv proiectul "${p.name}" (${p.key})? Toate task-urile lui se pierd. Nu se poate anula.`)) return;
+    api
+      .delete(`/projects/${p.id}`)
+      .then(load)
+      .catch((e) => setError(e instanceof ApiError ? e.message : 'Ștergere eșuată'));
+  };
 
   return (
     <aside
@@ -42,19 +53,40 @@ export function Sidebar() {
         Tracker
       </button>
 
+      {error && (
+        <p style={{ fontSize: 12, color: 'var(--danger)', padding: '0 10px', margin: '4px 0 0' }}>{error}</p>
+      )}
+
       <div style={{ flex: 1, overflowY: 'auto', padding: '10px 10px 0' }}>
         <div className="sidebar-label">Proiecte</div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           {projects?.map((p) => (
-            <NavLink key={p.id} to={`/projects/${p.id}`} className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
-              <span
-                className="project-swatch"
-                style={{ '--hue': hueFromKey(p.key) } as React.CSSProperties}
-              >
-                {p.key.slice(0, 2)}
-              </span>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-            </NavLink>
+            <div key={p.id} className="sidebar-row">
+              <NavLink to={`/projects/${p.id}`} className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
+                <span className="project-swatch" style={{ '--hue': hueFromKey(p.key) } as React.CSSProperties}>
+                  {p.key.slice(0, 2)}
+                </span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+              </NavLink>
+              {isAdmin && (
+                <button
+                  className="sidebar-delete-btn"
+                  title={`Șterge proiectul ${p.name}`}
+                  aria-label={`Șterge proiectul ${p.name}`}
+                  onClick={() => removeProject(p)}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                      d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0 1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
           ))}
           {projects && projects.length === 0 && (
             <p style={{ fontSize: 12.5, color: 'var(--muted)', padding: '6px 10px' }}>Niciun proiect încă.</p>

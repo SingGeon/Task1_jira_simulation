@@ -339,7 +339,9 @@ Backend-ul inițial nu avea interfață — doar API + Swagger. Am construit un 
 > secțiune „Admin” separată printr-un divizor. Bara de sus a rămas doar pentru profil/logout — nu mai
 > are nevoie de taburi de navigare, acelea au trecut în sidebar. Pagina `/projects` a rămas accesibilă
 > din „Toate proiectele” — acolo stau în continuare creare/cereri/invitații, care n-ar încăpea firesc
-> într-o bară laterală îngustă.
+> într-o bară laterală îngustă. Ștergerea unui proiect (admin) e tot în sidebar — o iconiță de coș de
+> gunoi care apare la hover pe rândul proiectului, nu un „✕” pe card — ca să poți șterge din orice
+> pagină, fără să navighezi înapoi la listă.
 >
 > **Scris și butoane mai mari:** am mărit corpul de text (14→15px), padding-ul butoanelor/input-urilor
 > și titlurile (`h1`–`h3`) — fuseseră dimensionate pentru densitate maximă de informație, dar citeau ca
@@ -523,5 +525,5 @@ sus, în secțiunea corespunzătoare):
 | Polish vizual general (§11): avatar „neasignat” cu contur punctat în loc de „?”, umbră/elevație la hover pe cardurile de task, coloane goale pe board ca drop-zone punctat, separatoare și hover în navigare | Interfața funcționa corect, dar câteva detalii vizuale citeau ca neintenționate sau plate (ex. „?” pe un avatar arăta ca o eroare), nu ca o decizie de design. |
 | Navigare mutată într-un sidebar fix, stil Jira, cu proiecte colorate distinct (§11); scris și butoane mărite | Cerut explicit; tab-urile de sus pentru proiecte nu scalau bine cu mai multe proiecte, iar textul/butoanele erau prea mici pentru utilizare prelungită. |
 | `DELETE /users/:id`: ștergere reală de cont, nu doar dezactivare (§5) | Cerut explicit („nu poți să ștergi conturi”); blocat totuși dacă userul a creat task-uri/comentarii, ca istoricul proiectului să nu dispară — dezactivarea rămâne calea pentru acel caz. |
-| Buton de ștergere proiect adăugat pe `/projects` (admin) | Endpoint-ul `DELETE /projects/:id` exista deja pe backend, dar nu avea nicio interfață — nu era un bug de permisiuni, doar un control lipsă. |
+| Buton de ștergere proiect mutat pe rândul din sidebar (icoană coș de gunoi, la hover), nu un „✕” pe cardul din `/projects` | Cerut explicit; și mai practic — ștergi direct din sidebar, din orice pagină, fără să navighezi înapoi la „Toate proiectele”. |
 | Epice (§16): grupare de task-uri sub un epic, tab nou „Epice”, chip colorat pe carduri/rânduri | Cerut explicit; implementat ca `Task` cu `type=EPIC` + `epicId` pe celelalte task-uri, nu ca entitate separată, ca să refolosească toată infrastructura existentă. |
