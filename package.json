@@ -39,6 +39,7 @@
     "@nestjs/platform-express": "^11.2.9",
     "@nestjs/platform-socket.io": "^11.2.9",
     "@nestjs/swagger": "^11.4.8",
+    "@nestjs/throttler": "^6.7.1",
     "@nestjs/typeorm": "^11.0.3",
     "@nestjs/websockets": "^11.2.9",
     "bcryptjs": "^3.0.3",

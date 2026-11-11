@@ -565,19 +565,35 @@ revoca o sesiune (dacă bănuiești că ți s-a compromis contul de pe un dispoz
 
 ---
 
-## 19. Ce aș adăuga în continuare
+## 19. Rate limiting pe `/auth/*`
+
+**Cerința:** protecție la brute-force pe rutele de autentificare.
+
+- `@nestjs/throttler`, `ThrottlerGuard` aplicat pe întregul `AuthController` (nu global — restul
+  API-ului nu are nevoie de limitare de rată, doar rutele de credențiale/token-uri). Limita e per
+  IP: **20 cereri/minut** pe fiecare rută din controller (`login`, `register`, `refresh` incluse).
+  > **Notă:** 20/minut e generos față de o limită „de manual” tipică (5/minut), ca să nu pice
+  > teste e2e sau utilizare normală care retrimite cereri rapid; tot oprește eficient un atac
+  > automatizat, care are nevoie de mult mai mult de 20 încercări/minut ca să fie util împotriva
+  > unei parole bcrypt-hash-uite.
+- Testat explicit în e2e: un burst de 25 cereri paralele pe `/auth/sessions` (rută nefolosită
+  altundeva în suite, ca să nu consume accidental bugetul altui test) întoarce atât `200` cât și
+  cel puțin un `429`.
+
+---
+
+## 20. Ce aș adăuga în continuare
 
 - Ordonare manuală (rank) a task-urilor în backlog și pe board.
 - Sub-task-uri (relații părinte–copil mai fine, în interiorul unei povești/task — diferit de epice,
   care grupează la un nivel mai sus; vezi §16).
-- Rate limiting pe `/auth/*`.
 - Aprobare de către PM-ul proiectului, nu doar admin, pentru cererile de acces (§13).
 - Notificare (in-app sau email) când primești un invite sau ți se decide o cerere, în loc să trebuiască
   să verifici pagina.
 
 ---
 
-## 20. Jurnal de modificări
+## 21. Jurnal de modificări
 
 Pe scurt, în ordine cronologică, ce s-a schimbat după versiunea inițială și de ce (detaliile, mai
 sus, în secțiunea corespunzătoare):
@@ -602,3 +618,4 @@ sus, în secțiunea corespunzătoare):
 | Pagina „Epice” rescrisă ca arbore expandabil (§16): chevron pe fiecare epic, task-urile legate apar indentate dedesubt la expand (lazy-load) | Cerut explicit, pe baza unui screenshot din Jira Cloud real („Timeline”); varianta anterioară (listă de carduri) nu permitea accesul direct la task-urile unui epic. |
 | Istoric de activitate pe task (§17): tab „Istoric” în drawer, plus pagină „Jurnal” pentru admin peste toate proiectele | Cerut explicit, ca tab-ul „History” din Jira; clarificat că „backlogul pentru admin” din cerere însemna de fapt jurnalul cine-a-făcut-ce, nu un backlog agregat. |
 | Refresh tokens + revocarea sesiunilor (§18): access token scurt (15m), refresh token revocabil (30d) cu rotație și detecție de refolosire, pagină „Sesiuni active” în Profil | Cerut explicit, de pe lista „ce aș adăuga”; access token-ul de 1 zi fără nicio cale de revocare era un risc real dacă un token ar fi fost furat. |
+| Rate limiting pe `/auth/*` (§19): `ThrottlerGuard` pe `AuthController`, 20 cereri/minut per IP | Cerut explicit, de pe lista „ce aș adăuga”; nicio rută de autentificare nu avea protecție la brute-force. |
