@@ -35,7 +35,7 @@ function ProjectShell() {
           </span>
           <h1 style={{ fontSize: 18 }}>{project.name}</h1>
         </div>
-        <nav style={{ display: 'flex', gap: 4 }}>
+        <nav style={{ display: 'flex', gap: 2 }}>
           <Tab to="board">Board</Tab>
           <Tab to="backlog">Backlog</Tab>
           {isScrum && <Tab to="sprints">Sprinturi</Tab>}
@@ -54,8 +54,10 @@ function Tab({ to, children }: { to: string; children: React.ReactNode }) {
   return (
     <NavLink
       to={to}
+      className={({ isActive }) => `nav-tab${isActive ? ' active' : ''}`}
       style={({ isActive }) => ({
         padding: '8px 12px',
+        borderRadius: '6px 6px 0 0',
         fontSize: 13,
         fontWeight: 500,
         textDecoration: 'none',
@@ -63,6 +65,12 @@ function Tab({ to, children }: { to: string; children: React.ReactNode }) {
         borderBottom: isActive ? '2px solid var(--accent)' : '2px solid transparent',
         marginBottom: -1,
       })}
+      onMouseEnter={(e) => {
+        if (!e.currentTarget.classList.contains('active')) e.currentTarget.style.background = 'var(--surface-sunken)';
+      }}
+      onMouseLeave={(e) => {
+        if (!e.currentTarget.classList.contains('active')) e.currentTarget.style.background = 'transparent';
+      }}
     >
       {children}
     </NavLink>

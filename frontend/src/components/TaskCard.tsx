@@ -17,7 +17,7 @@ export function TaskCard({
 }) {
   return (
     <button
-      className="card"
+      className="card task-card"
       onClick={onOpen}
       draggable={draggable}
       onDragStart={onDragStart}
@@ -54,7 +54,7 @@ export function TaskCard({
         </div>
       )}
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        {task.assignee ? <Avatar name={task.assignee.fullName} size={22} /> : <Avatar name="?" size={22} />}
+        <Avatar name={task.assignee?.fullName} size={22} unassigned={!task.assignee} />
       </div>
     </button>
   );
