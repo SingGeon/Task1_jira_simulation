@@ -8,6 +8,7 @@ import {
   SprintState,
   TaskPriority,
   TaskType,
+  type Activity,
   type Comment,
   type Epic,
   type Sprint,
@@ -17,6 +18,7 @@ import {
 } from '../lib/types';
 import { Drawer } from './Drawer';
 import { Avatar } from './Avatar';
+import { ActivityLog } from './ActivityLog';
 import { EpicChip } from './EpicChip';
 import { Spinner, ErrorBanner } from './Feedback';
 import { UserPicker } from './UserPicker';
@@ -36,6 +38,7 @@ export function TaskDrawer({
   const [task, setTask] = useState<Task | null>(null);
   const [transitions, setTransitions] = useState<WorkflowStatus[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [activity, setActivity] = useState<Activity[]>([]);
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [epics, setEpics] = useState<Epic[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -46,11 +49,13 @@ export function TaskDrawer({
       api.get<Task>(`/tasks/${idOrKey}`),
       api.get<WorkflowStatus[]>(`/tasks/${idOrKey}/transitions`),
       api.get<Comment[]>(`/tasks/${idOrKey}/comments`),
+      api.get<Activity[]>(`/tasks/${idOrKey}/activity`),
     ])
-      .then(([t, tr, c]) => {
+      .then(([t, tr, c, a]) => {
         setTask(t);
         setTransitions(tr);
         setComments(c);
+        setActivity(a);
       })
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Nu am putut încărca task-ul'));
   }, [idOrKey]);
@@ -64,6 +69,8 @@ export function TaskDrawer({
     api.get<Epic[]>(`/projects/${project.id}/epics`).then(setEpics).catch(() => {});
   }, [project.id, project.boardType]);
 
+  const refreshActivity = () => api.get<Activity[]>(`/tasks/${idOrKey}/activity`).then(setActivity).catch(() => {});
+
   const patch = async (body: Partial<Task>, field: string) => {
     if (!task) return;
     setSavingField(field);
@@ -71,6 +78,7 @@ export function TaskDrawer({
     try {
       const updated = await api.patch<Task>(`/tasks/${idOrKey}`, body);
       setTask(updated);
+      refreshActivity();
       onChanged();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Salvare eșuată');
@@ -88,6 +96,7 @@ export function TaskDrawer({
       setTask(updated);
       const tr = await api.get<WorkflowStatus[]>(`/tasks/${idOrKey}/transitions`);
       setTransitions(tr);
+      refreshActivity();
       onChanged();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Tranziție eșuată');
@@ -102,6 +111,7 @@ export function TaskDrawer({
     try {
       const updated = await api.put<Task>(`/tasks/${idOrKey}/assignee`, { assigneeId: u?.id ?? null });
       setTask(updated);
+      refreshActivity();
       onChanged();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Nu am putut asigna');
@@ -116,6 +126,7 @@ export function TaskDrawer({
     try {
       const updated = await api.put<Task>(`/tasks/${idOrKey}/sprint`, { sprintId });
       setTask(updated);
+      refreshActivity();
       onChanged();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Mutare eșuată');
@@ -348,6 +359,11 @@ export function TaskDrawer({
                   }
                 />
               )}
+            </div>
+
+            <div>
+              <h3 style={{ marginBottom: 10 }}>ISTORIC</h3>
+              <ActivityLog items={activity} />
             </div>
           </div>
         </>

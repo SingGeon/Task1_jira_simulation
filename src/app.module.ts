@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AccessModule } from './access/access.module';
+import { ActivityModule } from './activity/activity.module';
 import { AuthModule } from './auth/auth.module';
 import { SeedService } from './bootstrap/seed.service';
 import { CommentsModule } from './comments/comments.module';
@@ -42,6 +43,7 @@ import { WorkflowModule } from './workflow/workflow.module';
     SprintsModule,
     TasksModule,
     CommentsModule,
+    ActivityModule,
   ],
   providers: [
     SeedService,

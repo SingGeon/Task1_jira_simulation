@@ -223,6 +223,18 @@ export interface Comment {
   updatedAt: string;
 }
 
+export interface Activity {
+  id: string;
+  taskId: string;
+  task?: { id: string; key: string; title: string; projectId: string; project?: { id: string; key: string; name: string } };
+  actorId: string;
+  actorName: string;
+  field: string;
+  fromValue: string | null;
+  toValue: string | null;
+  createdAt: string;
+}
+
 export interface Paginated<T> {
   items: T[];
   total: number;
