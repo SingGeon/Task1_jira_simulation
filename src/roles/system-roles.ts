@@ -33,6 +33,7 @@ export const SYSTEM_ROLES: RoleSeed[] = [
       { permission: Permission.TASK_UPDATE, scope: GrantScope.REPORTER },
       { permission: Permission.TASK_TRANSITION, scope: GrantScope.ASSIGNEE },
       { permission: Permission.TASK_ASSIGN, scope: GrantScope.ASSIGNEE }, // hand over own task
+      { permission: Permission.TASK_DELETE, scope: GrantScope.ASSIGNEE }, // delete your own task, like Jira's "assignee can delete"
     ],
   },
   {

@@ -581,6 +581,22 @@ describe('Task Tracker (e2e)', () => {
     await as('outsider').put(`/api/tasks/${t1.body.key}/assignee`).send({ assigneeId: ids.outsider }).expect(400);
   });
 
+  it('a Developer can delete a task once assigned to them, but not someone else\'s; QA still cannot delete at all', async () => {
+    const mine = await as('pm').post(`/api/projects/${projectId}/tasks`).send({ title: 'Dev will own and delete this' }).expect(201);
+    await as('dev').put(`/api/tasks/${mine.body.key}/assignee`).send({ assigneeId: ids.dev }).expect(200);
+
+    const notMine = await as('pm').post(`/api/projects/${projectId}/tasks`).send({ title: 'Not dev\'s task' }).expect(201);
+    await as('dev').delete(`/api/tasks/${notMine.body.key}`).expect(403);
+
+    // QA never gets task.delete at all, assigned or not -- deleting evidence isn't a tester's call.
+    await as('qa').put(`/api/tasks/${mine.body.key}/assignee`).send({ assigneeId: ids.qa }).expect(200);
+    await as('qa').delete(`/api/tasks/${mine.body.key}`).expect(403);
+
+    await as('dev').put(`/api/tasks/${mine.body.key}/assignee`).send({ assigneeId: ids.dev }).expect(200);
+    await as('dev').delete(`/api/tasks/${mine.body.key}`).expect(204);
+    await as('pm').get(`/api/tasks/${mine.body.key}`).expect(404);
+  });
+
   // ---------------- admin user management ----------------
 
   it('admin can deactivate users; their tokens stop working immediately', async () => {

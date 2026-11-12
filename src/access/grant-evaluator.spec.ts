@@ -42,6 +42,15 @@ describe('grant evaluator', () => {
       expect(grantsAllow(dev, Permission.TASK_TRANSITION, ME, task())).toBe(false);
     });
 
+    it('Developer can delete only tasks assigned to them; QA cannot delete at all', () => {
+      const dev = grantsOf(SYSTEM_ROLE_NAMES.DEVELOPER);
+      expect(grantsAllow(dev, Permission.TASK_DELETE, ME, task({ assigneeId: ME }))).toBe(true);
+      expect(grantsAllow(dev, Permission.TASK_DELETE, ME, task())).toBe(false);
+
+      const qa = grantsOf(SYSTEM_ROLE_NAMES.QA);
+      expect(grantsAllow(qa, Permission.TASK_DELETE, ME, task({ assigneeId: ME }))).toBe(false);
+    });
+
     it('QA can change only tasks in IN_QA that are assigned to them', () => {
       const qa = grantsOf(SYSTEM_ROLE_NAMES.QA);
       expect(grantsAllow(qa, Permission.TASK_TRANSITION, ME, task({ assigneeId: ME, statusKey: 'IN_QA' }))).toBe(true);
