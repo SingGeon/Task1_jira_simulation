@@ -175,7 +175,9 @@ export function TaskDrawer({
   const ownsTask = task ? task.assigneeId === me?.id || task.reporterId === me?.id : false;
   const canUpdate = task ? can(Permission.TASK_UPDATE) || ownsTask : false;
   const canAssign = task ? can(Permission.TASK_ASSIGN) : false;
-  const canDelete = task ? can(Permission.TASK_DELETE) : false;
+  // Scoped to assignee specifically (not reporter, unlike canUpdate) — matches the grant shape:
+  // Developer-tier roles can delete a task once it's assigned to them, like Jira.
+  const canDelete = task ? can(Permission.TASK_DELETE) || task.assigneeId === me?.id : false;
   const isEpic = task?.type === TaskType.EPIC;
   const isSubtask = task?.type === TaskType.SUBTASK;
   const canMoveSprint = can(Permission.SPRINT_MANAGE) && project.boardType === BoardType.SCRUM && !isEpic && !isSubtask;
