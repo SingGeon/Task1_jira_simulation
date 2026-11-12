@@ -50,6 +50,18 @@ export function WorkflowPage() {
     }
   };
 
+  const moveStatus = async (index: number, direction: -1 | 1) => {
+    if (!wf) return;
+    const target = index + direction;
+    if (target < 0 || target >= wf.statuses.length) return;
+    try {
+      await api.patch(`/projects/${project.id}/workflow/statuses/${wf.statuses[index].id}`, { position: target });
+      load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Mutare eșuată');
+    }
+  };
+
   if (error) return <ErrorBanner message={error} />;
   if (!wf) return <Spinner />;
 
@@ -76,9 +88,35 @@ export function WorkflowPage() {
               </tr>
             </thead>
             <tbody>
-              {wf.statuses.map((s) => (
+              {wf.statuses.map((s, i) => (
                 <tr key={s.id}>
-                  <td style={{ fontVariantNumeric: 'tabular-nums' }}>{s.position}</td>
+                  <td style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {canEdit && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          <button
+                            className="btn btn-ghost"
+                            style={{ padding: '0 5px', fontSize: 10, lineHeight: '14px' }}
+                            disabled={i === 0}
+                            title="Mută mai sus"
+                            onClick={() => moveStatus(i, -1)}
+                          >
+                            ▲
+                          </button>
+                          <button
+                            className="btn btn-ghost"
+                            style={{ padding: '0 5px', fontSize: 10, lineHeight: '14px' }}
+                            disabled={i === wf.statuses.length - 1}
+                            title="Mută mai jos"
+                            onClick={() => moveStatus(i, 1)}
+                          >
+                            ▼
+                          </button>
+                        </div>
+                      )}
+                      {s.position}
+                    </div>
+                  </td>
                   <td className="mono">{s.key}</td>
                   <td>{s.name}</td>
                   <td>

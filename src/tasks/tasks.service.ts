@@ -120,8 +120,12 @@ export class TasksService {
 
     const initial = await this.workflow.initialStatus(projectId);
     if (dto.assigneeId) {
-      // Evaluate 'task.assign' against the task as it would exist before assignment.
-      access.assert(Permission.TASK_ASSIGN, { assigneeId: null, reporterId: user.id, status: initial });
+      // Claiming the new task for yourself only needs 'task.assignable' (checked below via
+      // assertAssignable) — 'task.assign' scoped to ASSIGNEE can never pass here, since it would
+      // require already being the assignee before the task (and the assignment) even exist.
+      if (dto.assigneeId !== user.id) {
+        access.assert(Permission.TASK_ASSIGN, { assigneeId: null, reporterId: user.id, status: initial });
+      }
       await this.assertAssignable(projectId, dto.assigneeId);
     }
     // Placing a new task directly into a sprint only needs 'task.create': anyone
@@ -264,7 +268,12 @@ export class TasksService {
 
   async assign(user: User, idOrKey: string, dto: AssignTaskDto): Promise<Task> {
     const { task, access } = await this.load(user, idOrKey);
-    access.assert(Permission.TASK_ASSIGN, task);
+    // Assigning yourself only needs 'task.assignable' (checked below via assertAssignable) —
+    // anyone eligible to hold tasks can grab one directly, no approval step. The regular
+    // 'task.assign' grant (often scoped to ASSIGNEE for IC-shaped roles) would otherwise require
+    // already being the assignee before the very change that makes you one, which can never be
+    // true the first time. Assigning someone ELSE still goes through the full check.
+    if (dto.assigneeId !== user.id) access.assert(Permission.TASK_ASSIGN, task);
     if (dto.assigneeId) await this.assertAssignable(task.projectId, dto.assigneeId);
     await this.tasks.update(task.id, { assigneeId: dto.assigneeId });
     const updated = await this.reload(task.id);

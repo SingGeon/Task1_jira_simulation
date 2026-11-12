@@ -175,6 +175,7 @@ export function TaskDrawer({
   const canMoveSprint = can(Permission.SPRINT_MANAGE) && project.boardType === BoardType.SCRUM && !isEpic && !isSubtask;
   const canComment = can(Permission.COMMENT_CREATE);
   const canManageComments = can(Permission.COMMENT_MANAGE);
+  const canSelfAssign = can(Permission.TASK_ASSIGNABLE);
 
   return (
     <Drawer onClose={onClose}>
@@ -293,11 +294,31 @@ export function TaskDrawer({
               {canAssign ? (
                 <UserPicker value={task.assignee} onChange={assign} placeholder="Neasignat — caută un membru" />
               ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <Avatar name={task.assignee?.fullName} unassigned={!task.assignee} />
                   <span style={{ fontSize: 13, color: task.assignee ? 'var(--ink)' : 'var(--muted)' }}>
                     {task.assignee?.fullName ?? 'Neasignat'}
                   </span>
+                  {canSelfAssign && task.assigneeId !== me?.id && (
+                    <button
+                      className="btn btn-ghost"
+                      style={{ fontSize: 12, padding: '3px 10px' }}
+                      disabled={savingField === 'assignee'}
+                      onClick={() => me && assign(me)}
+                    >
+                      Asignează-mi mie
+                    </button>
+                  )}
+                  {canSelfAssign && task.assigneeId === me?.id && (
+                    <button
+                      className="btn btn-ghost"
+                      style={{ fontSize: 12, padding: '3px 10px' }}
+                      disabled={savingField === 'assignee'}
+                      onClick={() => assign(null)}
+                    >
+                      Dezasignează-mă
+                    </button>
+                  )}
                 </div>
               )}
             </div>

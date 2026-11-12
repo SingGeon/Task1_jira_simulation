@@ -225,6 +225,30 @@ regulile din cerință fără cod special:
 > **`moveToSprint` (mutarea unui task deja existent între sprint și backlog) rămâne gated de
 > `sprint.manage`**, fiindcă aia e în continuare o decizie de planificare, nu de creare.
 
+> **Notă (schimbare ulterioară): poziția unui status se poate schimba din UI.** `WorkflowService.
+> updateStatus()` accepta deja `position` în `UpdateStatusDto` și reordona corect toate statusurile
+> (renumerotare contiguă) — backend-ul suporta asta de la început, dar pagina Workflow nu expunea
+> nicio cale să trimiți acel câmp. Cerut explicit. Adăugate doar săgeți ▲/▼ pe rândul fiecărui status
+> în `WorkflowPage.tsx`, care calculează noua poziție (`index ± 1`) și cheamă `PATCH .../statuses/:id`
+> deja existent — fără cod nou pe backend, fără librărie de drag-and-drop pentru o listă scurtă.
+
+> **Notă (schimbare ulterioară): oricine poate să-și dea singur assignee pe un task.** Cerut
+> explicit — „un utilizator simplu ar trebui să poată să-și dea assignee la task-uri”. Cauza reală nu
+> era un bug, ci o consecință a scope-ului `ASSIGNEE` de la §6.1: rolurile IC (Developer, Backend/
+> Frontend Developer, QA, DevOps, UI/UX Designer) au `task.assign` cu `scope: ASSIGNEE`, adică grant-ul
+> se aplică doar dacă task-ul **este deja** asignat ție — pentru un task neasignat condiția e mereu
+> falsă, deci niciun rol IC nu putea prelua un task liber, nici măcar pe al lui. Prima variantă
+> implementată a fost un flux cerere → aprobare de către PM (simetric cu cererile de acces, §13), dar
+> **a fost înlocuită** la cerere explicită ulterioară cu auto-asignare directă, fără pas de aprobare:
+> `TasksService.assign()` sare peste verificarea `task.assign` **doar atunci când assignee-ul cerut
+> ești chiar tu** — condiție verificată separat de restul logicii, care rămâne neschimbată — și se bazează
+> în schimb exclusiv pe `task.assignable` (deja verificat prin `assertAssignable`, indiferent cine e
+> assignee-ul). Asignarea **altcuiva** (sau preluarea unui task deja asignat altcuiva, către tine)
+> tot cere `task.assign` complet, neschimbat — doar „dă-mi mie” a devenit liber, nu „dă oricui”.
+> Aceeași excepție se aplică deja și la crearea unui task nou cu `assigneeId` = creatorul însuși.
+> Frontend: în `TaskDrawer`, câmpul Assignee arată un buton „Asignează-mi mie” (sau „Dezasignează-mă”
+> dacă ești deja assignee) pentru oricine are `task.assignable` dar nu și `task.assign` complet.
+
 ### 6.3 Rolurile predefinite (seed)
 
 | Rol | Ce poate |
@@ -776,3 +800,5 @@ sus, în secțiunea corespunzătoare):
 | Fix: clic în afara drawer-ului de task nu îl închidea (§11) | Semnalat direct de utilizator. Backdrop-ul era un `<div>` separat peste containerul cu handler-ul `onClose`, deci `e.target === e.currentTarget` nu era niciodată adevărat la clic pe fundal. Handler-ul mutat direct pe backdrop; adăugat și `Escape`. |
 | Culoare personalizabilă per epic (§16): coloană `hue` pe `Task`, picker cu 12 nuanțe presetate + „Auto” în `TaskDrawer` | Cerut explicit, cu captură arătând epice cu nuanțe de verde prea apropiate (hash-ul determinist din cheie nu garanta distincție vizuală între epice vecine). `hue` permis doar pe `type=EPIC`; `null` = revine la `hueFromKey` automat. |
 | Simbol vizual colorat per tip de task (§11): `<TypeIcon>`, folosit pe Board/Backlog/Epice/sub-task-uri | Cerut explicit, cu captură din Jira real. Reutilizează pattern-ul fundal-pal + text-saturat deja existent la pastilele de status/prioritate, în loc de un stil nou; un singur token nou (`--epic`/`--epic-soft`) pentru epic, singurul tip fără culoare semantică de reutilizat. |
+| Poziția unui status din workflow se poate schimba din UI (§6.2): săgeți ▲/▼ în `WorkflowPage.tsx` | Cerut explicit. Backend-ul (`position` în `UpdateStatusDto`) suporta deja reordonarea de la început — doar pagina Workflow nu expunea nicio cale să trimiți acel câmp; niciun cod nou pe backend. |
+| Oricine își poate da singur assignee pe un task (§6.2): `TasksService.assign()` sare peste `task.assign` când ținta ești tu însuți, bazându-se doar pe `task.assignable` | Cerut explicit. Scope-ul `ASSIGNEE` al rolurilor IC cerea să fii *deja* assignee ca să devii assignee — imposibil pentru un task liber. Prima variantă (cerere → aprobare de PM, simetrică cu §13) a fost înlocuită la cerere ulterioară cu auto-asignare directă, fără pas de aprobare; modulul de cereri a fost eliminat complet. |
