@@ -372,13 +372,14 @@ Backend-ul inițial nu avea interfață — doar API + Swagger. Am construit un 
 > doar grant-uri **necondiționate** (fără task, un grant cu `scope: ASSIGNEE` ca al Developer-ului nu
 > se potrivește niciodată, exact comportamentul din §6.1 „fără task, doar grant-urile necondiționate
 > se aplică”). Rezultatul: `canDrag` era `false` pentru orice rol ale cărui tranziții depind de task
-> (Developer, QA), deși butoanele „→ Status” din drawer funcționau corect (acelea cer tranzițiile
-> reale per-task de la backend, `GET /tasks/:id/transitions`). Fix: draggability calculată **per
-> card** — `can(TASK_TRANSITION) || task.assigneeId === eu` — nu încearcă să reproducă exact scope-ul
-> din grant (ex. restricția de status a QA pe `IN_QA`), ci doar aproximează „merită încercat”; dacă
-> backend-ul tot respinge mutarea (ex. QA pe un task care nu e în `IN_QA`), UI-ul deja revine cardul
-> pe loc cu eroare — mecanismul de revert exista deja, doar că majoritatea cardurilor nu ajungeau
-> niciodată până acolo.
+> (Developer, QA). Fix: draggability calculată **per card** — `can(TASK_TRANSITION) ||
+> task.assigneeId === eu` — nu încearcă să reproducă exact scope-ul din grant (ex. restricția de
+> status a QA pe `IN_QA`), ci doar aproximează „merită încercat”; dacă backend-ul tot respinge
+> mutarea (ex. QA pe un task care nu e în `IN_QA`), UI-ul deja revine cardul pe loc cu eroare —
+> mecanismul de revert exista deja, doar că majoritatea cardurilor nu ajungeau niciodată până acolo.
+> (Presupunerea inițială că butoanele „→ Status” din drawer scăpau de acest bug fiindcă citesc
+> tranzițiile reale de la backend s-a dovedit greșită — vezi nota de mai jos din §11, găsită abia
+> mai târziu: un gate separat, `canTransition`, bloca aceleași butoane din același motiv.)
 
 > **Notă (bug găsit la verificare): clic în afara drawer-ului de task nu îl închidea.** `Drawer.tsx`
 > avea un backdrop semi-transparent ca `<div>` SEPARAT, suprapus peste containerul care purta
@@ -389,6 +390,20 @@ Backend-ul inițial nu avea interfață — doar API + Swagger. Am construit un 
 > direct pe backdrop (clic pe el oricând închide; clic pe cardul din interior nu-l atinge, fiind
 > element frate, nu descendent, deci nu se propagă prin el). Adăugat și `Escape` pentru închidere,
 > ca la `Modal.tsx` (care nu avea acest bug — fundalul lui e pe același element cu handler-ul).
+
+> **Notă (bug găsit la verificare): câmpurile unui task asignat ție (tip, prioritate, story points,
+> descriere, etichete) apăreau needitabile în drawer, deși backend-ul permitea editarea.** Exact
+> același bug ca la draggability pe Board (nota de mai sus): `canUpdate` era calculat doar cu
+> `can(Permission.TASK_UPDATE)`, care ignoră grant-urile condiționate — rolurile IC au `task.update`
+> cu `scope: ASSIGNEE` (plus `REPORTER` la majoritatea, dar nu la QA), deci `can()` fără task întoarce
+> mereu `false` pentru ele, indiferent dacă task-ul chiar e al lor. Fix, aceeași aproximare ca la
+> draggability: `canUpdate = can(TASK_UPDATE) || task.assigneeId === eu || task.reporterId === eu`.
+> **Separat, un al doilea gate pe aceleași butoane „→ Status” despre care nota de mai sus presupunea
+> greșit că n-au problema:** `canTransition` (tot `can()` fără task) se adăuga *în plus* peste lista
+> de tranziții deja calculată corect per-task de backend (`GET /tasks/:id/transitions`), ascunzând
+> butoanele chiar și când acea listă venea populată. Eliminat complet — `transitions.length > 0` e
+> deja precis (vine din backend, ia în calcul statusul curent și scope-ul exact al rolului), nu mai
+> are nevoie de o aproximare suplimentară pe frontend ca la `canUpdate`/`canDrag`.
 
 > **Notă (schimbare ulterioară): simbol vizual per tip de task.** Pe board/backlog, singura diferență
 > vizibilă dintre un story, un task, un bug și un sub-task era un caracter unicode mic și monocrom
@@ -813,3 +828,4 @@ sus, în secțiunea corespunzătoare):
 | Poziția unui status din workflow se poate schimba din UI (§6.2): săgeți ▲/▼ în `WorkflowPage.tsx` | Cerut explicit. Backend-ul (`position` în `UpdateStatusDto`) suporta deja reordonarea de la început — doar pagina Workflow nu expunea nicio cale să trimiți acel câmp; niciun cod nou pe backend. |
 | Oricine își poate da singur assignee pe un task (§6.2): `TasksService.assign()` sare peste `task.assign` când ținta ești tu însuți, bazându-se doar pe `task.assignable` | Cerut explicit. Scope-ul `ASSIGNEE` al rolurilor IC cerea să fii *deja* assignee ca să devii assignee — imposibil pentru un task liber. Prima variantă (cerere → aprobare de PM, simetrică cu §13) a fost înlocuită la cerere ulterioară cu auto-asignare directă, fără pas de aprobare; modulul de cereri a fost eliminat complet. |
 | Selector de proiect pe pagina „Jurnal” (§18), legat de `?project=<id>` în URL | Cerut explicit. `GET /activity` suporta deja `projectId` ca filtru de la început — doar pagina nu expunea nicio cale să-l trimiți, arăta mereu toate proiectele amestecate; niciun cod nou pe backend. |
+| Fix: câmpurile unui task (tip, prioritate, story points, descriere) apăreau needitabile în drawer pentru assignee/reporter cu grant-uri condiționate (§11) | Semnalat direct de utilizator. `canUpdate` folosea `can(TASK_UPDATE)` fără task, exact același bug ca la draggability pe Board. Fix: `|| task.assigneeId === eu || task.reporterId === eu`. A scos la iveală și un al doilea gate (`canTransition`) care bloca inutil butoanele „→ Status”, deși lista de tranziții era deja corectă; eliminat complet. |

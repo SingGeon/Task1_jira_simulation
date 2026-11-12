@@ -166,9 +166,15 @@ export function TaskDrawer({
     }
   };
 
-  const canUpdate = task ? can(Permission.TASK_UPDATE) : false;
+  // can(permission) only reflects unconditional grants (no task context) — a role like Developer,
+  // whose task.update grant is scoped to "assigned to me" or "reported by me", would otherwise
+  // never see editable fields on its own tasks at all. Approximate "assigned/reported by me" as
+  // eligible too; this doesn't try to replicate every grant's exact condition (e.g. QA's extra
+  // IN_QA-status restriction), same as the board's drag-eligibility check — if the backend still
+  // rejects the edit, the existing error banner surfaces it.
+  const ownsTask = task ? task.assigneeId === me?.id || task.reporterId === me?.id : false;
+  const canUpdate = task ? can(Permission.TASK_UPDATE) || ownsTask : false;
   const canAssign = task ? can(Permission.TASK_ASSIGN) : false;
-  const canTransition = task ? can(Permission.TASK_TRANSITION) : false;
   const canDelete = task ? can(Permission.TASK_DELETE) : false;
   const isEpic = task?.type === TaskType.EPIC;
   const isSubtask = task?.type === TaskType.SUBTASK;
@@ -233,7 +239,7 @@ export function TaskDrawer({
               onSave={(v) => patch({ title: v }, 'title')}
             />
 
-            {transitions.length > 0 && canTransition && (
+            {transitions.length > 0 && (
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {transitions.map((s) => (
                   <button
