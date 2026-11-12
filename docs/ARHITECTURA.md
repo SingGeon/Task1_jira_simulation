@@ -707,6 +707,16 @@ o privire de ansamblu pentru admin, peste toate proiectele.
   `GET /activity` (admin-only, paginat, filtrabil după proiect/utilizator) pentru o pagină nouă
   „Jurnal” din secțiunea Admin a sidebar-ului, cu fiecare rând legat înapoi la task-ul lui.
 
+> **Notă (schimbare ulterioară): selector de proiect pe pagina „Jurnal”.** Filtrul `projectId` pe
+> `GET /activity` exista deja de la început (vezi bulletul de mai sus) — doar pagina `AdminActivityPage`
+> nu expunea nicio cale să-l trimiți, arăta mereu toate proiectele amestecate. Cerut explicit. Adăugat
+> un `<select>` cu lista de proiecte (`GET /projects`, care pentru un admin le întoarce pe toate,
+> fără filtrul de apartenență aplicat non-adminilor — §14), legat de query string-ul paginii
+> (`?project=<id>`) prin `useSearchParams`, nu doar stare locală React — ca selecția să supraviețuiască
+> unui refresh și să poată fi distribuită ca link direct către jurnalul unui singur proiect. Schimbarea
+> proiectului resetează și pagina la 1 (un filtru nou nu ar trebui să păstreze un număr de pagină
+> rămas de la rezultatul anterior, posibil mai mare decât există acum). Niciun cod nou pe backend.
+
 ---
 
 ## 19. Refresh tokens și revocarea sesiunilor
@@ -802,3 +812,4 @@ sus, în secțiunea corespunzătoare):
 | Simbol vizual colorat per tip de task (§11): `<TypeIcon>`, folosit pe Board/Backlog/Epice/sub-task-uri | Cerut explicit, cu captură din Jira real. Reutilizează pattern-ul fundal-pal + text-saturat deja existent la pastilele de status/prioritate, în loc de un stil nou; un singur token nou (`--epic`/`--epic-soft`) pentru epic, singurul tip fără culoare semantică de reutilizat. |
 | Poziția unui status din workflow se poate schimba din UI (§6.2): săgeți ▲/▼ în `WorkflowPage.tsx` | Cerut explicit. Backend-ul (`position` în `UpdateStatusDto`) suporta deja reordonarea de la început — doar pagina Workflow nu expunea nicio cale să trimiți acel câmp; niciun cod nou pe backend. |
 | Oricine își poate da singur assignee pe un task (§6.2): `TasksService.assign()` sare peste `task.assign` când ținta ești tu însuți, bazându-se doar pe `task.assignable` | Cerut explicit. Scope-ul `ASSIGNEE` al rolurilor IC cerea să fii *deja* assignee ca să devii assignee — imposibil pentru un task liber. Prima variantă (cerere → aprobare de PM, simetrică cu §13) a fost înlocuită la cerere ulterioară cu auto-asignare directă, fără pas de aprobare; modulul de cereri a fost eliminat complet. |
+| Selector de proiect pe pagina „Jurnal” (§18), legat de `?project=<id>` în URL | Cerut explicit. `GET /activity` suporta deja `projectId` ca filtru de la început — doar pagina nu expunea nicio cale să-l trimiți, arăta mereu toate proiectele amestecate; niciun cod nou pe backend. |
