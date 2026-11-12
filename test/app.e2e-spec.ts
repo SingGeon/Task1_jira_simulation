@@ -518,6 +518,69 @@ describe('Task Tracker (e2e)', () => {
     await as('pm').delete(`/api/projects/${projectId}/workflow/statuses/${blocked.body.id}`).expect(409); // in use
   });
 
+  it('a status can be moved to a different position in the workflow', async () => {
+    const created = await as('pm')
+      .post(`/api/projects/${projectId}/workflow/statuses`)
+      .send({ key: 'REORDER_TEST', name: 'Reorder test', category: 'IN_PROGRESS' })
+      .expect(201);
+    const before = await as('pm').get(`/api/projects/${projectId}/workflow`).expect(200);
+    expect(before.body.statuses[before.body.statuses.length - 1].key).toBe('REORDER_TEST'); // appended at the end
+
+    await as('dev')
+      .patch(`/api/projects/${projectId}/workflow/statuses/${created.body.id}`)
+      .send({ position: 1 })
+      .expect(403);
+    await as('pm')
+      .patch(`/api/projects/${projectId}/workflow/statuses/${created.body.id}`)
+      .send({ position: 1 })
+      .expect(200);
+
+    const after = await as('pm').get(`/api/projects/${projectId}/workflow`).expect(200);
+    expect(after.body.statuses[0].key).toBe('TODO'); // untouched: still first (= initial status)
+    expect(after.body.statuses[1].key).toBe('REORDER_TEST');
+    expect(after.body.statuses.map((s: any) => s.position)).toEqual(after.body.statuses.map((_: any, i: number) => i)); // contiguous
+
+    await as('pm').delete(`/api/projects/${projectId}/workflow/statuses/${created.body.id}`).expect(204);
+  });
+
+  // ---------------- self-assign ----------------
+
+  it('creating your own task, you can self-assign without full task.assign (but not assign it to someone else)', async () => {
+    const mine = await as('dev')
+      .post(`/api/projects/${projectId}/tasks`)
+      .send({ title: 'My own task', assigneeId: ids.dev })
+      .expect(201);
+    expect(mine.body.assigneeId).toBe(ids.dev);
+
+    await as('dev')
+      .post(`/api/projects/${projectId}/tasks`)
+      .send({ title: 'For someone else', assigneeId: ids.pm })
+      .expect(403);
+  });
+
+  it('anyone who can hold tasks can assign themselves directly to an existing task, no approval needed', async () => {
+    const t1 = await as('pm').post(`/api/projects/${projectId}/tasks`).send({ title: 'Needs an owner' }).expect(201);
+
+    // QA's task.assign is normally scoped to tasks already assigned to them -- self-assigning
+    // bypasses that scope check entirely, so claiming this unclaimed task works right away.
+    const claimed = await as('qa').put(`/api/tasks/${t1.body.key}/assignee`).send({ assigneeId: ids.qa }).expect(200);
+    expect(claimed.body.assigneeId).toBe(ids.qa);
+
+    // dev can take over the same task too -- self-assign works even when it's already someone else's.
+    const taken = await as('dev').put(`/api/tasks/${t1.body.key}/assignee`).send({ assigneeId: ids.dev }).expect(200);
+    expect(taken.body.assigneeId).toBe(ids.dev);
+
+    // Handing it to someone ELSE still needs full task.assign -- works here because the task is
+    // currently dev's (their ASSIGNEE-scoped grant matches).
+    await as('dev').put(`/api/tasks/${t1.body.key}/assignee`).send({ assigneeId: ids.pm }).expect(200);
+
+    // ...but qa, who isn't the current assignee, can't assign it to anyone but themselves.
+    await as('qa').put(`/api/tasks/${t1.body.key}/assignee`).send({ assigneeId: ids.pm }).expect(403);
+
+    // Viewer lacks 'task.assignable' entirely: can't even self-assign.
+    await as('outsider').put(`/api/tasks/${t1.body.key}/assignee`).send({ assigneeId: ids.outsider }).expect(400);
+  });
+
   // ---------------- admin user management ----------------
 
   it('admin can deactivate users; their tokens stop working immediately', async () => {
