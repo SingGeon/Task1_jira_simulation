@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -415,12 +415,40 @@ export function TaskDrawer({
 
 function EditableTitle({ value, disabled, saving, onSave }: { value: string; disabled: boolean; saving: boolean; onSave: (v: string) => void }) {
   const [draft, setDraft] = useState(value);
+  const [height, setHeight] = useState<number>();
+  const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => setDraft(value), [value]);
+  // Auto-grow to fit the real content instead of guessing row count from character length (that
+  // guess didn't account for this field's larger font-size and clipped single-line titles). The
+  // measured height is kept in state — not just written to the DOM — so it survives re-renders
+  // triggered by the drawer's other data loading (comments/activity/subtasks arriving later),
+  // which would otherwise reset the textarea back to React's declarative style each time.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    setHeight(el.scrollHeight);
+  }, [draft]);
   return (
     <textarea
+      ref={ref}
       className="textarea"
-      style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, minHeight: 0, resize: 'none' }}
-      rows={Math.max(1, Math.ceil(draft.length / 46))}
+      style={{
+        fontFamily: 'var(--font-display)',
+        fontWeight: 600,
+        fontSize: 17,
+        minHeight: 0,
+        // This field is a direct child of the drawer's overflowing flex column. Without
+        // flexShrink:0, the flex-shrink algorithm squeezes it down near 0 height whenever the
+        // column's total content overflows — minHeight:0 above (needed to go under the shared
+        // 72px .textarea min-height) is exactly what removes the browser's normal protection
+        // against that, so it has to be reinstated explicitly here.
+        flexShrink: 0,
+        resize: 'none',
+        overflow: 'hidden',
+        height: height ? `${height}px` : undefined,
+      }}
+      rows={1}
       value={draft}
       disabled={disabled || saving}
       onChange={(e) => setDraft(e.target.value)}
