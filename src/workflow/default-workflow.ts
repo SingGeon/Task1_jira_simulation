@@ -9,13 +9,12 @@ export const DEFAULT_STATUSES = [
   { key: 'DONE', name: 'Done', category: StatusCategory.DONE },
 ];
 
-export const DEFAULT_TRANSITIONS: [string, string][] = [
-  ['TODO', 'IN_PROGRESS'],
-  ['IN_PROGRESS', 'TODO'],
-  ['IN_PROGRESS', 'IN_REVIEW'],
-  ['IN_REVIEW', 'IN_PROGRESS'],
-  ['IN_REVIEW', 'IN_QA'],
-  ['IN_QA', 'IN_PROGRESS'], // QA rejected
-  ['IN_QA', 'DONE'],
-  ['DONE', 'IN_PROGRESS'], // reopen
-];
+/**
+ * Every status can move to every other status by default — a new project starts fully open
+ * (move a task "cum vrei și de unde vrei"), not pre-restricted to a specific chain. A PM narrows
+ * this down afterwards on the Workflow tab (§6.2) if their team wants a stricter process; nothing
+ * here is enforced as "the" correct flow, it's just the permissive starting point.
+ */
+export const DEFAULT_TRANSITIONS: [string, string][] = DEFAULT_STATUSES.flatMap(({ key: from }) =>
+  DEFAULT_STATUSES.filter(({ key: to }) => to !== from).map(({ key: to }) => [from, to] as [string, string]),
+);
