@@ -28,6 +28,8 @@
   --danger-soft: #fbe7e4;
   --info: #3f63d6;
   --info-soft: #e6ebfb;
+  --epic: #6a4fc9;
+  --epic-soft: #ece8fb;
 
   --shadow-color: 180 10% 10%;
   --radius: 6px;
@@ -58,6 +60,8 @@
     --danger-soft: #3b1b17;
     --info: #7f9bf0;
     --info-soft: #1a2342;
+    --epic: #b7a3f5;
+    --epic-soft: #2a2250;
   }
 }
 
@@ -84,6 +88,8 @@
   --danger-soft: #3b1b17;
   --info: #7f9bf0;
   --info-soft: #1a2342;
+  --epic: #b7a3f5;
+  --epic-soft: #2a2250;
 }
 
 * {
@@ -620,6 +626,65 @@ tbody tr:hover {
   background: var(--good);
   border-radius: 999px;
   transition: width 0.2s ease;
+}
+
+/* Colored per-type badge (Epic/Story/Task/Bug/Sub-task) so the icon next to a key reads at a
+   glance instead of blending in as plain muted text. */
+.type-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  border-radius: 4px;
+  font-size: 10px;
+  line-height: 1;
+  flex: none;
+}
+
+.type-icon-epic {
+  background: var(--epic-soft);
+  color: var(--epic);
+}
+
+.type-icon-story {
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.type-icon-task {
+  background: var(--info-soft);
+  color: var(--info);
+}
+
+.type-icon-bug {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.type-icon-subtask {
+  background: var(--surface-sunken);
+  color: var(--muted);
+  border: 1px solid var(--border-strong);
+}
+
+.hue-swatch {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.hue-swatch:hover {
+  transform: scale(1.08);
+}
+
+.hue-swatch-selected {
+  border-color: var(--ink);
 }
 
 .epic-tree-header {

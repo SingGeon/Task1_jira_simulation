@@ -8,9 +8,10 @@ import { Spinner, ErrorBanner, EmptyState } from '../components/Feedback';
 import { Avatar } from '../components/Avatar';
 import { EpicChip } from '../components/EpicChip';
 import { TaskDrawer } from '../components/TaskDrawer';
+import { TypeIcon } from '../components/TypeIcon';
 import { CreateTaskModal } from '../components/CreateTaskModal';
 import { CreateSprintModal, StartSprintModal, CompleteSprintModal } from '../components/SprintModals';
-import { categoryPillClass, formatDate, typeIcon } from '../lib/format';
+import { categoryPillClass, formatDate } from '../lib/format';
 
 interface Group {
   key: string;
@@ -268,8 +269,11 @@ function GroupSection({
         <div style={{ padding: tasks.length || canCreate ? '6px 0' : 0 }}>
           {tasks.map((t) => (
             <button key={t.id} className="backlog-row" onClick={() => onOpenTask(t.key)}>
-              <span className="mono" style={{ fontSize: 12, color: 'var(--muted)' }}>
-                {typeIcon(t.type)} {t.key}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <TypeIcon type={t.type} />
+                <span className="mono" style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  {t.key}
+                </span>
               </span>
               <span style={{ fontSize: 13, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
               <span>{t.epic && <EpicChip epic={t.epic} />}</span>

@@ -366,6 +366,23 @@ Backend-ul inițial nu avea interfață — doar API + Swagger. Am construit un 
 > element frate, nu descendent, deci nu se propagă prin el). Adăugat și `Escape` pentru închidere,
 > ca la `Modal.tsx` (care nu avea acest bug — fundalul lui e pe același element cu handler-ul).
 
+> **Notă (schimbare ulterioară): simbol vizual per tip de task.** Pe board/backlog, singura diferență
+> vizibilă dintre un story, un task, un bug și un sub-task era un caracter unicode mic și monocrom
+> (`typeIcon(type)`) lângă cheie — greu de distins dintr-o privire rapidă pe un board plin. Cerut
+> explicit, cu captură arătând boardul Jira real al utilizatorului, unde fiecare tip are propria
+> iconiță colorată. Soluție: componentă nouă `<TypeIcon type=.../>` (`components/TypeIcon.tsx`) care
+> afișează același caracter, dar într-un chip mic cu fundal „soft” + text saturat — **reutilizând
+> exact pattern-ul deja existent la `.pill-done`/`.pill-critical`/`.pill-high`/`.pill-todo`** (fundal
+> pal, text în aceeași nuanță dar mai saturată), nu un fundal solid + text alb inventat separat —
+> astfel rămâne vizual consecvent cu restul paletei de stări/priorități și funcționează automat în
+> ambele teme (light/dark), fără CSS nou per temă. Mapare semantică: story → `--good` (verde, ca
+> „finalizat”), task → `--info` (albastru), bug → `--danger` (roșu), sub-task → neutru
+> (`--surface-sunken` + bordură), epic → un token nou `--epic`/`--epic-soft` (singurul tip fără o
+> culoare semantică deja existentă de reutilizat). `<TypeIcon>` înlocuiește `typeIcon()` brut pe
+> `TaskCard`, `BacklogPage`, `EpicsPage` și lista de sub-task-uri din `TaskDrawer`; `typeIcon()` brut
+> rămâne folosit doar acolo unde nu poate apărea HTML, adică opțiunile unui `<select>` nativ (dropdown-ul
+> „Tip” din formularele de creare/editare).
+
 > **Notă (schimbare ulterioară): navigare din bară laterală, stil Jira, în loc de tab-uri sus.**
 > Inițial, proiectele erau doar o pagină (`/projects`) la care te întorceai ca să schimbi proiectul.
 > Cerut explicit: o bară fixă în stânga (`components/Sidebar.tsx`) cu toate proiectele tale, fiecare
@@ -571,6 +588,27 @@ utilizatorul decide).
   > de progres dar fără acces direct la task-urile din epic. Cerut explicit, pe baza unui screenshot
   > din Jira Cloud real al utilizatorului, să arate ca un arbore ierarhic expandabil.
 
+  > **Notă (schimbare ulterioară): culoare personalizabilă per epic.** Culoarea unui epic era doar
+  > `hueFromKey(epic.key)` — un hash determinist al cheii (`GIG-1`, `GIG-2`...) transformat în nuanță
+  > HSL. Funcționa ca „fiecare epic are o culoare stabilă”, dar nu garanta că epicele *vecine* arată
+  > diferit — cu 8 epice, hash-ul a produs mai multe nuanțe de verde apropiate, greu de distins dintr-o
+  > privire pe board/backlog. Cerut explicit, cu captură din aplicația reală arătând exact acest
+  > cluster de verzuri. Soluție: `Task` are acum o coloană opțională `hue` (`smallint`, 0–359,
+  > `null` implicit). Când e setată, `epicHue(epic)` o folosește în loc de `hueFromKey`; `null`
+  > păstrează comportamentul vechi (fallback automat pe hash). Restricții impuse în `TasksService`,
+  > atât la creare cât și la actualizare: `hue` poate fi setat doar pe `type=EPIC` (altfel 400) — nu
+  > are sens pe o poveste/task/bug/sub-task, care-și iau culoarea de la epicul-părinte prin
+  > `EpicChip`, nu au propria lor. Ales un **set fix de 12 nuanțe presetate** (`HUE_PRESETS` în
+  > `TaskDrawer`) în loc de un color-picker complet (hex/RGB liber), din două motive: (1) orice
+  > nuanță liberă tot trece prin aceeași formulă `hsl(hue, saturație-fixă, luminozitate-fixă)` ca
+  > restul paletei de culori a aplicației — un hex arbitrar ar putea produce un contrast prost cu
+  > textul alb de pe chip în modul întunecat sau invers; (2) 12 opțiuni e suficient să distingi 8
+  > epice clar, fără complexitatea unui `<input type="color">` + logică de conversie hex→HSL. Un
+  > buton „Auto” separat resetează la `null` (revine la hash), nu doar la prima presetare din listă —
+  > altfel n-ar mai exista nicio cale să te întorci la comportamentul automat din UI. `hue` e exclus
+  > deliberat din înregistrarea de activitate (§18) — e o preferință cosmetică, nu o schimbare care
+  > merită să aglomereze istoricul unui task.
+
 ---
 
 ## 17. Sub-task-uri
@@ -736,3 +774,5 @@ sus, în secțiunea corespunzătoare):
 | Fix: niciun task nu era draggable pe Board pentru rolul Developer (§11) | Semnalat direct de utilizator testând ca Developer. `canDrag` folosea `can(TASK_TRANSITION)` fără task, care nu vede grant-urile condiționate (`scope: ASSIGNEE`) — exact scope-ul rolului Developer. Calculat acum per card: `can(...) \|\| task.assigneeId === eu`. |
 | Invitațiile tale + cererile tale consolidate pe pagina „Cereri” (§15), cu notificare (contor roșu în sidebar) și update live fără refresh la accept | Cerut explicit; erau împrăștiate pe `/projects`, fără nicio indicație că ai ceva de răspuns. `lib/events.ts` (`CustomEvent` pe `window`) sincronizează sidebar-ul (listă proiecte + contor) instant cu acțiunea proprie a userului. |
 | Fix: clic în afara drawer-ului de task nu îl închidea (§11) | Semnalat direct de utilizator. Backdrop-ul era un `<div>` separat peste containerul cu handler-ul `onClose`, deci `e.target === e.currentTarget` nu era niciodată adevărat la clic pe fundal. Handler-ul mutat direct pe backdrop; adăugat și `Escape`. |
+| Culoare personalizabilă per epic (§16): coloană `hue` pe `Task`, picker cu 12 nuanțe presetate + „Auto” în `TaskDrawer` | Cerut explicit, cu captură arătând epice cu nuanțe de verde prea apropiate (hash-ul determinist din cheie nu garanta distincție vizuală între epice vecine). `hue` permis doar pe `type=EPIC`; `null` = revine la `hueFromKey` automat. |
+| Simbol vizual colorat per tip de task (§11): `<TypeIcon>`, folosit pe Board/Backlog/Epice/sub-task-uri | Cerut explicit, cu captură din Jira real. Reutilizează pattern-ul fundal-pal + text-saturat deja existent la pastilele de status/prioritate, în loc de un stil nou; un singur token nou (`--epic`/`--epic-soft`) pentru epic, singurul tip fără culoare semantică de reutilizat. |

@@ -85,6 +85,13 @@ export class CreateTaskDto {
   @IsOptional()
   @IsUUID()
   parentId?: string;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 359, description: 'Custom color (HSL hue) — epics only' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(359)
+  hue?: number;
 }
 
 /** Plain field edits. Status, assignee and sprint have dedicated endpoints (different permissions). */
@@ -138,6 +145,14 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsUUID()
   parentId?: string;
+
+  @ApiPropertyOptional({ nullable: true, minimum: 0, maximum: 359, description: 'Custom color (HSL hue) — epics only; null resets to the automatic color' })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsInt()
+  @Min(0)
+  @Max(359)
+  hue?: number | null;
 }
 
 export class TransitionTaskDto {

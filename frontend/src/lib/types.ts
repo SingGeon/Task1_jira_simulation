@@ -172,6 +172,7 @@ export interface EpicRef {
   id: string;
   key: string;
   title: string;
+  hue: number | null;
 }
 
 export interface Task {
@@ -196,6 +197,7 @@ export interface Task {
   epic: EpicRef | null;
   parentId: string | null;
   parent: EpicRef | null;
+  hue: number | null;
   createdAt: string;
   updatedAt: string;
 }

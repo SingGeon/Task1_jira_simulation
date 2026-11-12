@@ -145,6 +145,9 @@ export class TasksService {
       if (dto.type !== TaskType.SUBTASK) throw new BadRequestException('Only a sub-task can have a parentId');
       await this.resolveParent(projectId, dto.parentId);
     }
+    if (dto.hue !== undefined && dto.type !== TaskType.EPIC) {
+      throw new BadRequestException('Only an epic can have a custom color');
+    }
 
     const id = await this.dataSource.transaction(async (em) => {
       // Atomic per-project counter -> WEB-1, WEB-2, ... (safe under concurrency)
@@ -172,6 +175,7 @@ export class TasksService {
           sprintId: dto.sprintId ?? null,
           epicId: dto.epicId ?? null,
           parentId: dto.parentId ?? null,
+          hue: dto.hue ?? null,
         }),
       );
       return saved.id;
@@ -183,15 +187,18 @@ export class TasksService {
   async update(user: User, idOrKey: string, dto: UpdateTaskDto): Promise<Task> {
     const { task, access } = await this.load(user, idOrKey);
     access.assert(Permission.TASK_UPDATE, task);
-    const { title, description, type, priority, labels, storyPoints, epicId, parentId } = dto;
+    const { title, description, type, priority, labels, storyPoints, epicId, parentId, hue } = dto;
     const changes = Object.fromEntries(
-      Object.entries({ title, description, type, priority, labels, storyPoints, epicId, parentId }).filter(
+      Object.entries({ title, description, type, priority, labels, storyPoints, epicId, parentId, hue }).filter(
         ([, v]) => v !== undefined,
       ),
     );
     if (Object.keys(changes).length === 0) throw new BadRequestException('Nothing to update');
 
     const resultingType = type ?? task.type;
+    if (hue !== undefined && hue !== null && resultingType !== TaskType.EPIC) {
+      throw new BadRequestException('Only an epic can have a custom color');
+    }
     if (epicId !== undefined && epicId !== null) {
       if (resultingType === TaskType.EPIC) throw new BadRequestException('An epic cannot belong to another epic');
       if (resultingType === TaskType.SUBTASK) {
@@ -211,6 +218,8 @@ export class TasksService {
 
     await this.tasks.update(task.id, changes);
     const updated = await this.reload(task.id);
+    // `hue` is deliberately not logged here — it's a cosmetic epic color, not something worth
+    // cluttering the task's history timeline with.
     await this.activity.record(task.id, user, [
       ...diff('title', task.title, updated.title),
       ...diff('description', task.description, updated.description),
