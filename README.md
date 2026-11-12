@@ -5,8 +5,173 @@ Aplicație de tip Jira: proiecte cu board **Scrum** (sprinturi + backlog) sau **
 roluri** (Admin, Project Manager, Developer, QA, Viewer, plus orice rol nou creat de admin), board
 și backlog **live** (WebSocket) și un frontend React complet (nu doar API).
 
-**Arhitectura și deciziile (inclusiv de ce s-a schimbat ceva) sunt explicate în
-[`docs/ARHITECTURA.md`](docs/ARHITECTURA.md).**
+## Arhitectura aplicației
+
+```mermaid
+flowchart LR
+    subgraph Browser["Browser"]
+        FE["React 19 + Vite SPA<br/>fetch wrapper · Socket.IO client<br/>sessionStorage (JWT)"]
+    end
+
+    subgraph Backend["NestJS backend"]
+        Guard["JwtAuthGuard → AdminGuard<br/>(global, @Public() excepted)"]
+        Mods["Feature modules<br/>Auth · Users · Roles · Projects<br/>JoinRequests · Invites · Workflow<br/>Sprints · Tasks · Comments · Activity"]
+        ACL["AccessControlService<br/>RBAC grant evaluator (§ permisiuni pe date, nu pe cod)"]
+        RT["RealtimeGateway<br/>Socket.IO, camere project:&lt;id&gt;"]
+    end
+
+    DB[("PostgreSQL<br/>via TypeORM + migrații")]
+
+    FE -- "REST /api/*" --> Guard
+    FE -- "WebSocket: join camera project:&lt;id&gt;" --> RT
+    Guard --> Mods
+    Mods --> ACL
+    Mods --> DB
+    RT -. "notifică la orice schimbare" .-> FE
+    Mods -. "broadcast(projectId)" .-> RT
+```
+
+Regula centrală: rolurile, permisiunile și workflow-ul sunt **date în baza de date**, nu `if`-uri în
+cod — niciun serviciu nu verifică vreodată numele unui rol, doar o permisiune (`task.transition`,
+`project.members.manage` etc.) prin `AccessControlService`.
+
+## Arhitectura bazei de date
+
+```mermaid
+erDiagram
+    USERS ||--o{ REFRESH_TOKENS : "owns"
+    USERS ||--o{ PROJECT_MEMBERS : "is"
+    PROJECTS ||--o{ PROJECT_MEMBERS : "has"
+    ROLES ||--o{ PROJECT_MEMBERS : "grants"
+    PROJECTS ||--o{ WORKFLOW_STATUSES : "defines"
+    WORKFLOW_STATUSES ||--o{ WORKFLOW_TRANSITIONS : "from"
+    WORKFLOW_STATUSES ||--o{ WORKFLOW_TRANSITIONS : "to"
+    PROJECTS ||--o{ SPRINTS : "plans"
+    PROJECTS ||--o{ TASKS : "contains"
+    SPRINTS |o--o{ TASKS : "schedules"
+    WORKFLOW_STATUSES ||--o{ TASKS : "status of"
+    USERS |o--o{ TASKS : "assigned to"
+    USERS ||--o{ TASKS : "reported"
+    TASKS |o--o{ TASKS : "epic → task-uri"
+    TASKS |o--o{ TASKS : "părinte → sub-task-uri"
+    TASKS ||--o{ COMMENTS : "has"
+    USERS ||--o{ COMMENTS : "authored"
+    TASKS ||--o{ TASK_ACTIVITIES : "logs"
+    USERS ||--o{ TASK_ACTIVITIES : "performed"
+    PROJECTS ||--o{ JOIN_REQUESTS : "receives"
+    USERS ||--o{ JOIN_REQUESTS : "requests"
+    ROLES ||--o{ JOIN_REQUESTS : "requested role"
+    USERS |o--o{ JOIN_REQUESTS : "decided by"
+    PROJECTS ||--o{ PROJECT_INVITES : "sends"
+    USERS ||--o{ PROJECT_INVITES : "invited user"
+    USERS ||--o{ PROJECT_INVITES : "invited by"
+    ROLES ||--o{ PROJECT_INVITES : "invited role"
+
+    USERS {
+        uuid id PK
+        string email UK
+        string passwordHash
+        string fullName
+        enum systemRole "ADMIN | USER"
+        bool isActive
+    }
+    REFRESH_TOKENS {
+        uuid id PK
+        uuid userId FK
+        string tokenHash UK
+        timestamptz expiresAt
+        timestamptz revokedAt
+    }
+    ROLES {
+        uuid id PK
+        string name UK
+        jsonb grants "PermissionGrant[]"
+        bool isSystem
+        bool isDefault
+    }
+    PROJECTS {
+        uuid id PK
+        string key UK "ex. WEB"
+        string name
+        enum boardType "SCRUM | KANBAN"
+        enum management "COMPANY | TEAM"
+        int taskCounter
+    }
+    PROJECT_MEMBERS {
+        uuid id PK
+        uuid projectId FK
+        uuid userId FK
+        uuid roleId FK
+    }
+    WORKFLOW_STATUSES {
+        uuid id PK
+        uuid projectId FK
+        string key "ex. IN_QA"
+        enum category "TODO | IN_PROGRESS | DONE"
+        int position
+    }
+    WORKFLOW_TRANSITIONS {
+        uuid id PK
+        uuid projectId FK
+        uuid fromStatusId FK
+        uuid toStatusId FK
+    }
+    SPRINTS {
+        uuid id PK
+        uuid projectId FK
+        string name
+        enum state "PLANNED | ACTIVE | CLOSED"
+        timestamptz startDate
+        timestamptz endDate
+    }
+    TASKS {
+        uuid id PK
+        uuid projectId FK
+        string key UK "ex. WEB-42"
+        string title
+        enum type "EPIC | STORY | TASK | BUG | SUBTASK"
+        enum priority "LOW | MEDIUM | HIGH | CRITICAL"
+        int storyPoints
+        uuid statusId FK
+        uuid assigneeId FK
+        uuid reporterId FK
+        uuid sprintId FK
+        uuid epicId FK "auto-ref, SET NULL"
+        uuid parentId FK "auto-ref, CASCADE"
+        smallint hue "doar pe epice"
+    }
+    COMMENTS {
+        uuid id PK
+        uuid taskId FK
+        uuid authorId FK
+        text body
+    }
+    TASK_ACTIVITIES {
+        uuid id PK
+        uuid taskId FK
+        uuid actorId FK
+        string actorName "snapshot"
+        string field
+        text fromValue
+        text toValue
+    }
+    JOIN_REQUESTS {
+        uuid id PK
+        uuid projectId FK
+        uuid userId FK
+        uuid roleId FK
+        enum status "PENDING | APPROVED | REJECTED"
+        uuid decidedById FK
+    }
+    PROJECT_INVITES {
+        uuid id PK
+        uuid projectId FK
+        uuid userId FK
+        uuid roleId FK
+        uuid invitedById FK
+        enum status "PENDING | ACCEPTED | DECLINED"
+    }
+```
 
 ## Pornire rapidă
 
@@ -94,7 +259,7 @@ proiect, membri, regulile Developer/QA/PM, workflow, sprinturi, board Kanban, cr
 | Activity | `GET /tasks/:idOrKey/activity` *(istoric: cine a schimbat ce și când)*, `GET /activity` *(admin; peste toate proiectele, filtrabil `projectId`/`actorId`)* |
 
 Toate rutele au prefixul `/api`. Pe lângă REST, serverul expune și un canal **WebSocket**
-(Socket.IO, `/socket.io`) pentru actualizări live — vezi `docs/ARHITECTURA.md` §12.
+(Socket.IO, `/socket.io`) pentru actualizări live — vezi diagrama de arhitectură de mai sus.
 
 ## Configurare (`.env`)
 
