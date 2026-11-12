@@ -105,4 +105,11 @@ export class Task extends BaseEntity {
   @ManyToOne(() => Task, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn()
   parent: Task | null;
+
+  /**
+   * Custom color for an epic (HSL hue, 0-359), only meaningful for `type = EPIC`. `null` = keep
+   * the deterministic hash-from-key color every epic/project swatch falls back to by default.
+   */
+  @Column({ type: 'smallint', nullable: true })
+  hue: number | null;
 }

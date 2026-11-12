@@ -1,7 +1,8 @@
 import type { Task } from '../lib/types';
 import { Avatar } from './Avatar';
 import { EpicChip } from './EpicChip';
-import { priorityPillClass, typeIcon } from '../lib/format';
+import { TypeIcon } from './TypeIcon';
+import { priorityPillClass } from '../lib/format';
 
 export function TaskCard({
   task,
@@ -40,8 +41,11 @@ export function TaskCard({
         </div>
       )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-        <span className="mono" style={{ fontSize: 11, color: 'var(--muted)' }}>
-          {typeIcon(task.type)} {task.key}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          <TypeIcon type={task.type} />
+          <span className="mono" style={{ fontSize: 11, color: 'var(--muted)' }}>
+            {task.key}
+          </span>
         </span>
         <span className={priorityPillClass(task.priority)}>{task.priority}</span>
         {task.storyPoints != null && (

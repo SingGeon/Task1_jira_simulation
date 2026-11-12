@@ -23,8 +23,12 @@ import { Avatar } from './Avatar';
 import { ActivityLog } from './ActivityLog';
 import { EpicChip } from './EpicChip';
 import { Spinner, ErrorBanner } from './Feedback';
+import { TypeIcon } from './TypeIcon';
 import { UserPicker } from './UserPicker';
 import { categoryPillClass, formatDateTime, typeIcon } from '../lib/format';
+
+/** Evenly spaced around the wheel so no two presets look alike. */
+const HUE_PRESETS = [0, 24, 48, 80, 130, 160, 190, 220, 255, 280, 310, 340];
 
 export function TaskDrawer({
   idOrKey,
@@ -276,6 +280,14 @@ export function TaskDrawer({
               </div>
             </div>
 
+            {isEpic && (
+              <EpicColorPicker
+                value={task.hue}
+                disabled={!canUpdate}
+                onPick={(hue) => patch({ hue }, 'hue')}
+              />
+            )}
+
             <div className="field">
               <label>Assignee</label>
               {canAssign ? (
@@ -500,6 +512,39 @@ function EditableLabels({ value, disabled, onSave }: { value: string[]; disabled
   );
 }
 
+function EpicColorPicker({
+  value,
+  disabled,
+  onPick,
+}: {
+  value: number | null;
+  disabled: boolean;
+  onPick: (hue: number | null) => void;
+}) {
+  return (
+    <div className="field">
+      <label>Culoare</label>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        {HUE_PRESETS.map((h) => (
+          <button
+            key={h}
+            type="button"
+            disabled={disabled}
+            className={`hue-swatch${value === h ? ' hue-swatch-selected' : ''}`}
+            style={{ background: `hsl(${h} 62% 52%)` }}
+            title={`Nuanța ${h}°`}
+            aria-label={`Nuanța ${h}°`}
+            onClick={() => onPick(h)}
+          />
+        ))}
+        <button className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 10px' }} disabled={disabled} onClick={() => onPick(null)}>
+          Auto
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function SubtasksSection({
   subtasks,
   canCreate,
@@ -548,8 +593,11 @@ function SubtasksSection({
                 borderBottom: i < subtasks.length - 1 ? '1px solid var(--border)' : 'none',
               }}
             >
-              <span className="mono" style={{ fontSize: 11, color: 'var(--muted)' }}>
-                {typeIcon(s.type)} {s.key}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <TypeIcon type={s.type} />
+                <span className="mono" style={{ fontSize: 11, color: 'var(--muted)' }}>
+                  {s.key}
+                </span>
               </span>
               <span
                 style={{

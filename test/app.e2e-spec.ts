@@ -419,6 +419,24 @@ describe('Task Tracker (e2e)', () => {
     await as('pm').get(`/api/tasks/${sub.body.key}`).expect(404);
   });
 
+  it('only an epic can have a custom color (hue)', async () => {
+    const plain = await as('pm').post(`/api/projects/${projectId}/tasks`).send({ title: 'Not an epic' }).expect(201);
+    await as('pm').post(`/api/projects/${projectId}/tasks`).send({ title: 'Bad', type: 'EPIC', hue: 400 }).expect(400); // out of range
+    await as('pm').patch(`/api/tasks/${plain.body.key}`).send({ hue: 120 }).expect(400); // not an epic
+
+    const epic = await as('pm')
+      .post(`/api/projects/${projectId}/tasks`)
+      .send({ title: 'Colored epic', type: 'EPIC', hue: 275 })
+      .expect(201);
+    expect(epic.body.hue).toBe(275);
+
+    const updated = await as('pm').patch(`/api/tasks/${epic.body.key}`).send({ hue: 50 }).expect(200);
+    expect(updated.body.hue).toBe(50);
+
+    const reset = await as('pm').patch(`/api/tasks/${epic.body.key}`).send({ hue: null }).expect(200);
+    expect(reset.body.hue).toBeNull();
+  });
+
   it('records task activity (who changed what) and exposes it per-task and system-wide for admins', async () => {
     const task = await as('pm').post(`/api/projects/${projectId}/tasks`).send({ title: 'Track me' }).expect(201);
     const key = task.body.key;

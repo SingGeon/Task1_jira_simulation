@@ -8,7 +8,8 @@ import { Spinner, ErrorBanner, EmptyState } from '../components/Feedback';
 import { Avatar } from '../components/Avatar';
 import { Modal } from '../components/Modal';
 import { TaskDrawer } from '../components/TaskDrawer';
-import { categoryPillClass, hueFromKey, typeIcon } from '../lib/format';
+import { TypeIcon } from '../components/TypeIcon';
+import { categoryPillClass, epicHue } from '../lib/format';
 
 export function EpicsPage() {
   const { project, can } = useProjectAccess();
@@ -122,8 +123,8 @@ function EpicNode({
           {expanded ? '▾' : '▸'}
         </button>
         <button className="epic-tree-main" onClick={() => onOpen(epic.key)}>
-          <span className="project-swatch" style={{ '--hue': hueFromKey(epic.key) } as React.CSSProperties}>
-            {typeIcon(TaskType.EPIC)}
+          <span className="project-swatch" style={{ '--hue': epicHue(epic) } as React.CSSProperties}>
+            ▲
           </span>
           <span className="mono" style={{ fontSize: 12, color: 'var(--muted)' }}>
             {epic.key}
@@ -152,8 +153,11 @@ function EpicNode({
           )}
           {children?.map((t) => (
             <button key={t.id} className="epic-child-row" onClick={() => onOpen(t.key)}>
-              <span className="mono" style={{ fontSize: 12, color: 'var(--muted)' }}>
-                {typeIcon(t.type)} {t.key}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <TypeIcon type={t.type} />
+                <span className="mono" style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  {t.key}
+                </span>
               </span>
               <span
                 style={{

@@ -59,11 +59,27 @@ export function typeIcon(t: string): string {
   return TYPE_ICON[t] ?? '▣';
 }
 
+const TYPE_ICON_CLASS: Record<string, string> = {
+  EPIC: 'type-icon-epic',
+  STORY: 'type-icon-story',
+  TASK: 'type-icon-task',
+  BUG: 'type-icon-bug',
+  SUBTASK: 'type-icon-subtask',
+};
+export function typeIconClass(t: string): string {
+  return TYPE_ICON_CLASS[t] ?? 'type-icon-task';
+}
+
 /** Deterministic hue from a short key, e.g. a project key or an epic's key — used for color swatches/chips. */
 export function hueFromKey(key: string): number {
   let h = 0;
   for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) % 360;
   return h;
+}
+
+/** An epic's own color if it picked one, else the deterministic hue from its key. */
+export function epicHue(ref: { key: string; hue?: number | null }): number {
+  return ref.hue ?? hueFromKey(ref.key);
 }
 
 const ACTIVITY_FIELD_LABEL: Record<string, string> = {
