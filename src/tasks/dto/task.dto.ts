@@ -80,6 +80,11 @@ export class CreateTaskDto {
   @IsOptional()
   @IsUUID()
   epicId?: string;
+
+  @ApiPropertyOptional({ description: "Required when type=SUBTASK: the story/task/bug it breaks down" })
+  @IsOptional()
+  @IsUUID()
+  parentId?: string;
 }
 
 /** Plain field edits. Status, assignee and sprint have dedicated endpoints (different permissions). */
@@ -128,6 +133,11 @@ export class UpdateTaskDto {
   @ValidateIf((_, v) => v !== null)
   @IsUUID()
   epicId?: string | null;
+
+  @ApiPropertyOptional({ description: 'Re-parents a sub-task (not nullable: a sub-task always needs a parent)' })
+  @IsOptional()
+  @IsUUID()
+  parentId?: string;
 }
 
 export class TransitionTaskDto {
@@ -178,6 +188,11 @@ export class ListTasksQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsUUID()
   epicId?: string;
+
+  @ApiPropertyOptional({ description: 'Only sub-tasks of this task' })
+  @IsOptional()
+  @IsUUID()
+  parentId?: string;
 
   @ApiPropertyOptional({ description: 'true = only tasks not in any sprint' })
   @IsOptional()

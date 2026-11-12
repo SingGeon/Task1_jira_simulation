@@ -127,7 +127,7 @@ Decizii la nivel de model:
 ## 5. Autentificare și înregistrare
 
 - `POST /api/auth/register` și `POST /api/auth/login` returnează `{ accessToken, refreshToken, user }`
-  — vezi §18 pentru ce face al doilea token.
+  — vezi §19 pentru ce face al doilea token.
 - Toate celelalte rute cer `Authorization: Bearer <token>`. Am pus **guard-ul JWT global**, ca
   rutele să fie protejate implicit: o rută nouă e protejată automat, iar pentru excepții se pune
   explicit `@Public()`. Așa nu poți uita să protejezi un endpoint.
@@ -517,7 +517,52 @@ utilizatorul decide).
 
 ---
 
-## 17. Istoric de activitate (jurnal)
+## 17. Sub-task-uri
+
+**Cerința:** „relații părinte–copil mai fine, în interiorul unei povești/task” — diferit de epice
+(§16), care grupează la un nivel mai sus (mai multe povești/task-uri sub un epic). Un sub-task
+descompune UN task/poveste/bug în bucăți mai mici, nu grupează mai multe task-uri distincte.
+
+- **Același truc ca la epice: `Task` cu `type = SUBTASK`**, nu o entitate separată — reutilizează
+  statusul, workflow-ul, permisiunile, comentariile, istoricul de activitate, totul. Leagă-l de
+  părinte prin `Task.parentId` (auto-FK).
+- **Spre deosebire de `epicId`, `parentId` e `ON DELETE CASCADE`, nu `SET NULL`.** Un epic șters
+  lasă task-urile lui în picioare (doar nu mai sunt grupate); un sub-task fără părinte n-are sens
+  deloc — dacă dispare task-ul descompus, dispar și bucățile lui.
+- **Reguli, impuse în `TasksService` (atât la `create`, cât și la `update`):**
+  - `type=SUBTASK` **necesită** `parentId` (spre deosebire de `epicId`, care e opțional la epice) —
+    un sub-task orfan nu are sens;
+  - `parentId` doar pe `type=SUBTASK` — un task normal nu poate avea părinte;
+  - părintele nu poate fi un epic (sub-task-urile se agață de poveste/task/bug, nu direct de epic —
+    la fel ca în Jira) și nu poate fi alt sub-task (un singur nivel de imbricare, ca la epice);
+  - un sub-task **nu are propriul epic** — îl moștenește implicit din părinte, deci `epicId` pe un
+    sub-task e respins cu 400;
+  - un sub-task **nu poate fi pus singur într-un sprint** — nici la creare, nici ulterior prin
+    `PUT /tasks/:id/sprint` (verificare adăugată și acolo, ca regula să nu poată fi ocolită creând
+    un sub-task simplu și mutându-l apoi direct în sprint).
+  - sub-task-urile **nu apar pe board** (excluse alături de epice — `t.type NOT IN (EPIC, SUBTASK)`)
+    — se văd doar imbricate sub părinte, în drawer-ul lui.
+- **Niciun endpoint nou pentru listare** — la fel ca la copiii unui epic, sub-task-urile unui task
+  se obțin cu același `GET /projects/:id/tasks?parentId=<id>` deja existent (am adăugat doar filtrul
+  `parentId` la `ListTasksQueryDto`), nu un `GET /tasks/:id/subtasks` separat.
+- Frontend: secțiunea „Sub-task-uri” din `TaskDrawer` (vizibilă doar pe story/task/bug, nu pe epic
+  și nu pe un sub-task însuși) listează sub-task-urile cu un progres `(x/y)`, plus un câmp rapid
+  „+ Sub-task nou”. Un sub-task deschis în drawer arată un chip clicabil către părinte (reutilizează
+  `EpicChip`, aceeași formă de date `{id, key, title}`), iar un click pe un rând de sub-task
+  înlocuiește task-ul curent din drawer cu acel sub-task — fără să deschidă un al doilea drawer, ci
+  schimbând parametrul `?task=` din URL (același `useSearchParams` din pagină), ceea ce păstrează
+  un singur drawer deschis oricât ai naviga între părinte și copii.
+
+  > **Notă (bug găsit la implementare):** câmpul „Story points” din drawer folosea un `<input
+  > defaultValue=...>` necontrolat — la schimbarea task-ului afișat (din click pe un rând de
+  > sub-task sau pe chip-ul de părinte, fără să se demonteze componenta `TaskDrawer`), valoarea
+  > rămânea cea a task-ului anterior. Fixat adăugând `key={task.id}` pe acel input, ca React să-l
+  > remonteze la fiecare schimbare de task — același bug ar fi afectat deja navigarea epic → copil
+  > din §16, doar că nu fusese observat până acum.
+
+---
+
+## 18. Istoric de activitate (jurnal)
 
 **Cerința:** să se vadă cine a schimbat ce și când pe un task, ca tab-ul „History” din Jira — plus
 o privire de ansamblu pentru admin, peste toate proiectele.
@@ -546,7 +591,7 @@ o privire de ansamblu pentru admin, peste toate proiectele.
 
 ---
 
-## 18. Refresh tokens și revocarea sesiunilor
+## 19. Refresh tokens și revocarea sesiunilor
 
 **Cerința:** un access token care nu mai stă valabil o zi întreagă (risc dacă e furat/logat undeva),
 dar fără să oblige utilizatorul să se relogheze din 15 în 15 minute — plus o cale reală de a
@@ -577,7 +622,7 @@ revoca o sesiune (dacă bănuiești că ți s-a compromis contul de pe un dispoz
 
 ---
 
-## 19. Rate limiting pe `/auth/*`
+## 20. Rate limiting pe `/auth/*`
 
 **Cerința:** protecție la brute-force pe rutele de autentificare.
 
@@ -594,17 +639,15 @@ revoca o sesiune (dacă bănuiești că ți s-a compromis contul de pe un dispoz
 
 ---
 
-## 20. Ce aș adăuga în continuare
+## 21. Ce aș adăuga în continuare
 
 - Ordonare manuală (rank) a task-urilor în backlog și pe board.
-- Sub-task-uri (relații părinte–copil mai fine, în interiorul unei povești/task — diferit de epice,
-  care grupează la un nivel mai sus; vezi §16).
 - Notificare (in-app sau email) când primești un invite sau ți se decide o cerere, în loc să trebuiască
   să verifici pagina.
 
 ---
 
-## 21. Jurnal de modificări
+## 22. Jurnal de modificări
 
 Pe scurt, în ordine cronologică, ce s-a schimbat după versiunea inițială și de ce (detaliile, mai
 sus, în secțiunea corespunzătoare):
@@ -628,6 +671,7 @@ sus, în secțiunea corespunzătoare):
 | Epice (§16): grupare de task-uri sub un epic, tab nou „Epice”, chip colorat pe carduri/rânduri | Cerut explicit; implementat ca `Task` cu `type=EPIC` + `epicId` pe celelalte task-uri, nu ca entitate separată, ca să refolosească toată infrastructura existentă. |
 | Pagina „Epice” rescrisă ca arbore expandabil (§16): chevron pe fiecare epic, task-urile legate apar indentate dedesubt la expand (lazy-load) | Cerut explicit, pe baza unui screenshot din Jira Cloud real („Timeline”); varianta anterioară (listă de carduri) nu permitea accesul direct la task-urile unui epic. |
 | Istoric de activitate pe task (§17): tab „Istoric” în drawer, plus pagină „Jurnal” pentru admin peste toate proiectele | Cerut explicit, ca tab-ul „History” din Jira; clarificat că „backlogul pentru admin” din cerere însemna de fapt jurnalul cine-a-făcut-ce, nu un backlog agregat. |
-| Refresh tokens + revocarea sesiunilor (§18): access token scurt (15m), refresh token revocabil (30d) cu rotație și detecție de refolosire, pagină „Sesiuni active” în Profil | Cerut explicit, de pe lista „ce aș adăuga”; access token-ul de 1 zi fără nicio cale de revocare era un risc real dacă un token ar fi fost furat. |
-| Rate limiting pe `/auth/*` (§19): `ThrottlerGuard` pe `AuthController`, 20 cereri/minut per IP | Cerut explicit, de pe lista „ce aș adăuga”; nicio rută de autentificare nu avea protecție la brute-force. |
+| Refresh tokens + revocarea sesiunilor (§19): access token scurt (15m), refresh token revocabil (30d) cu rotație și detecție de refolosire, pagină „Sesiuni active” în Profil | Cerut explicit, de pe lista „ce aș adăuga”; access token-ul de 1 zi fără nicio cale de revocare era un risc real dacă un token ar fi fost furat. |
+| Rate limiting pe `/auth/*` (§20): `ThrottlerGuard` pe `AuthController`, 20 cereri/minut per IP | Cerut explicit, de pe lista „ce aș adăuga”; nicio rută de autentificare nu avea protecție la brute-force. |
 | PM-ul proiectului poate aproba/respinge cereri de acces (§13), nu doar admin | Cerut explicit, de pe lista „ce aș adăuga”; linkul „Cereri” din sidebar e acum vizibil pentru toată lumea, filtrat de backend după `project.members.manage`. |
+| Sub-task-uri (§17): `Task` cu `type=SUBTASK` + `parentId` (CASCADE), secțiune „Sub-task-uri” în drawer, excluse din board/backlog | Cerut explicit, de pe lista „ce aș adăuga”; a scos la iveală un bug de `defaultValue` necontrolat pe câmpul Story points la schimbarea task-ului afișat în același drawer (fixat cu `key={task.id}`). |

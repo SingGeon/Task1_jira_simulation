@@ -58,9 +58,14 @@ export function BacklogPage() {
             .get<Paginated<Task>>(`/projects/${project.id}/tasks`, { backlog: true, q: q || undefined, limit: 100 })
             .then((r) => ['backlog', r.items] as const),
         ]);
-        // Epics are managed on their own tab, not mixed into sprint/backlog rows.
+        // Epics are managed on their own tab; sub-tasks show up nested under their parent instead.
         setTasksByGroup(
-          Object.fromEntries(entries.map(([key, items]) => [key, items.filter((t) => t.type !== TaskType.EPIC)])),
+          Object.fromEntries(
+            entries.map(([key, items]) => [
+              key,
+              items.filter((t) => t.type !== TaskType.EPIC && t.type !== TaskType.SUBTASK),
+            ]),
+          ),
         );
       })
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Nu am putut încărca backlog-ul'));

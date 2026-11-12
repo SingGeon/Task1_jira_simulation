@@ -5,7 +5,7 @@ import { Modal } from './Modal';
 import { ErrorBanner } from './Feedback';
 import { typeIcon } from '../lib/format';
 
-const CREATABLE_TYPES = Object.values(TaskType).filter((t) => t !== TaskType.EPIC);
+const CREATABLE_TYPES = Object.values(TaskType).filter((t) => t !== TaskType.EPIC && t !== TaskType.SUBTASK);
 
 export function CreateTaskModal({
   projectId,

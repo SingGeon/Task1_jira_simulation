@@ -26,8 +26,8 @@ import {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function epicLabel(epic: Task | null): string | null {
-  return epic ? `${epic.key} — ${epic.title}` : null;
+function taskRefLabel(ref: Task | null): string | null {
+  return ref ? `${ref.key} — ${ref.title}` : null;
 }
 
 @Injectable()
@@ -52,7 +52,8 @@ export class TasksService {
       .leftJoinAndSelect('t.assignee', 'assignee')
       .leftJoinAndSelect('t.reporter', 'reporter')
       .leftJoinAndSelect('t.sprint', 'sprint')
-      .leftJoinAndSelect('t.epic', 'epic');
+      .leftJoinAndSelect('t.epic', 'epic')
+      .leftJoinAndSelect('t.parent', 'parent');
   }
 
   /** An epicId must point at an EPIC in the same project; epics can't belong to another epic. */
@@ -61,6 +62,15 @@ export class TasksService {
     if (!epic) throw new BadRequestException('Epic not found in this project');
     if (epic.type !== TaskType.EPIC) throw new BadRequestException(`'${epic.key}' is not an epic`);
     return epic;
+  }
+
+  /** A parentId must point at a story/task/bug in the same project — not an epic, not another sub-task. */
+  private async resolveParent(projectId: string, parentId: string): Promise<Task> {
+    const parent = await this.tasks.findOne({ where: { id: parentId, projectId } });
+    if (!parent) throw new BadRequestException('Parent task not found in this project');
+    if (parent.type === TaskType.EPIC) throw new BadRequestException('A sub-task cannot belong to an epic directly');
+    if (parent.type === TaskType.SUBTASK) throw new BadRequestException('A sub-task cannot belong to another sub-task');
+    return parent;
   }
 
   /** Loads a task by id or key ("WEB-12") and resolves the caller's project access. */
@@ -118,9 +128,22 @@ export class TasksService {
     // allowed to create tasks can add their own into the sprint they're working in.
     if (dto.sprintId) await this.resolveSprint(projectId, dto.sprintId);
     if (dto.type === TaskType.EPIC && dto.sprintId) throw new BadRequestException('Epics cannot be placed in a sprint');
+    if (dto.type === TaskType.SUBTASK && dto.sprintId) {
+      throw new BadRequestException('Sub-tasks cannot be placed in a sprint directly (they follow their parent)');
+    }
     if (dto.epicId) {
       if (dto.type === TaskType.EPIC) throw new BadRequestException('An epic cannot belong to another epic');
+      if (dto.type === TaskType.SUBTASK) {
+        throw new BadRequestException("Sub-tasks don't have their own epic — they inherit it from their parent");
+      }
       await this.resolveEpic(projectId, dto.epicId);
+    }
+    if (dto.type === TaskType.SUBTASK && !dto.parentId) {
+      throw new BadRequestException('A sub-task needs a parentId');
+    }
+    if (dto.parentId) {
+      if (dto.type !== TaskType.SUBTASK) throw new BadRequestException('Only a sub-task can have a parentId');
+      await this.resolveParent(projectId, dto.parentId);
     }
 
     const id = await this.dataSource.transaction(async (em) => {
@@ -148,6 +171,7 @@ export class TasksService {
           reporterId: user.id,
           sprintId: dto.sprintId ?? null,
           epicId: dto.epicId ?? null,
+          parentId: dto.parentId ?? null,
         }),
       );
       return saved.id;
@@ -159,15 +183,32 @@ export class TasksService {
   async update(user: User, idOrKey: string, dto: UpdateTaskDto): Promise<Task> {
     const { task, access } = await this.load(user, idOrKey);
     access.assert(Permission.TASK_UPDATE, task);
-    const { title, description, type, priority, labels, storyPoints, epicId } = dto;
+    const { title, description, type, priority, labels, storyPoints, epicId, parentId } = dto;
     const changes = Object.fromEntries(
-      Object.entries({ title, description, type, priority, labels, storyPoints, epicId }).filter(([, v]) => v !== undefined),
+      Object.entries({ title, description, type, priority, labels, storyPoints, epicId, parentId }).filter(
+        ([, v]) => v !== undefined,
+      ),
     );
     if (Object.keys(changes).length === 0) throw new BadRequestException('Nothing to update');
+
+    const resultingType = type ?? task.type;
     if (epicId !== undefined && epicId !== null) {
-      if ((type ?? task.type) === TaskType.EPIC) throw new BadRequestException('An epic cannot belong to another epic');
+      if (resultingType === TaskType.EPIC) throw new BadRequestException('An epic cannot belong to another epic');
+      if (resultingType === TaskType.SUBTASK) {
+        throw new BadRequestException("Sub-tasks don't have their own epic — they inherit it from their parent");
+      }
       await this.resolveEpic(task.projectId, epicId);
     }
+    if (resultingType === TaskType.SUBTASK) {
+      const resultingEpicId = epicId !== undefined ? epicId : task.epicId;
+      if (resultingEpicId) throw new BadRequestException("Sub-tasks don't have their own epic — they inherit it from their parent");
+      const resultingParentId = parentId !== undefined ? parentId : task.parentId;
+      if (!resultingParentId) throw new BadRequestException('A sub-task needs a parentId');
+    } else if (parentId !== undefined) {
+      throw new BadRequestException('Only a sub-task can have a parentId');
+    }
+    if (parentId !== undefined) await this.resolveParent(task.projectId, parentId);
+
     await this.tasks.update(task.id, changes);
     const updated = await this.reload(task.id);
     await this.activity.record(task.id, user, [
@@ -177,7 +218,8 @@ export class TasksService {
       ...diff('priority', task.priority, updated.priority),
       ...diff('labels', task.labels.join(', ') || null, updated.labels.join(', ') || null),
       ...diff('storyPoints', task.storyPoints?.toString() ?? null, updated.storyPoints?.toString() ?? null),
-      ...diff('epic', epicLabel(task.epic), epicLabel(updated.epic)),
+      ...diff('epic', taskRefLabel(task.epic), taskRefLabel(updated.epic)),
+      ...diff('parent', taskRefLabel(task.parent), taskRefLabel(updated.parent)),
     ]);
     this.realtime.broadcast(task.projectId);
     return updated;
@@ -229,6 +271,9 @@ export class TasksService {
   async moveToSprint(user: User, idOrKey: string, dto: MoveToSprintDto): Promise<Task> {
     const { task, access } = await this.load(user, idOrKey);
     access.assert(Permission.SPRINT_MANAGE);
+    if (dto.sprintId && (task.type === TaskType.EPIC || task.type === TaskType.SUBTASK)) {
+      throw new BadRequestException(`A ${task.type === TaskType.EPIC ? 'epic' : 'sub-task'} cannot be placed in a sprint`);
+    }
     if (dto.sprintId) await this.resolveSprint(task.projectId, dto.sprintId);
     await this.tasks.update(task.id, { sprintId: dto.sprintId });
     const updated = await this.reload(task.id);
@@ -267,6 +312,7 @@ export class TasksService {
     if (q.backlog) qb.andWhere('t.sprintId IS NULL');
     else if (q.sprintId) qb.andWhere('t.sprintId = :sprintId', { sprintId: q.sprintId });
     if (q.epicId) qb.andWhere('t.epicId = :epicId', { epicId: q.epicId });
+    if (q.parentId) qb.andWhere('t.parentId = :parentId', { parentId: q.parentId });
     if (q.type) qb.andWhere('t.type = :type', { type: q.type });
     if (q.priority) qb.andWhere('t.priority = :priority', { priority: q.priority });
     if (q.q) qb.andWhere('(t.title ILIKE :q OR t.key ILIKE :q)', { q: `%${q.q}%` });
@@ -289,7 +335,9 @@ export class TasksService {
     let tasks: Task[] = [];
     const qb = this.baseQuery()
       .where('t.projectId = :projectId', { projectId })
-      .andWhere('t.type != :epicType', { epicType: TaskType.EPIC });
+      // Epics and sub-tasks don't get their own board card: epics group work at a higher level,
+      // sub-tasks show up nested under their parent instead (list() with ?parentId=).
+      .andWhere('t.type NOT IN (:...excludedFromBoard)', { excludedFromBoard: [TaskType.EPIC, TaskType.SUBTASK] });
     const assignee = this.resolveAssigneeFilter(user, q.assignee);
     if (assignee === null) qb.andWhere('t.assigneeId IS NULL');
     else if (assignee) qb.andWhere('t.assigneeId = :assignee', { assignee });

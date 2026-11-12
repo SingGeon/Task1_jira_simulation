@@ -36,6 +36,7 @@ export enum TaskType {
   STORY = 'STORY',
   TASK = 'TASK',
   BUG = 'BUG',
+  SUBTASK = 'SUBTASK',
 }
 
 export enum TaskPriority {
@@ -193,6 +194,8 @@ export interface Task {
   sprint: Sprint | null;
   epicId: string | null;
   epic: EpicRef | null;
+  parentId: string | null;
+  parent: EpicRef | null;
   createdAt: string;
   updatedAt: string;
 }

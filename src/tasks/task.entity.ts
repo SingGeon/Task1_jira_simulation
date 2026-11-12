@@ -10,6 +10,7 @@ export enum TaskType {
   STORY = 'STORY',
   TASK = 'TASK',
   BUG = 'BUG',
+  SUBTASK = 'SUBTASK',
 }
 
 export enum TaskPriority {
@@ -91,4 +92,17 @@ export class Task extends BaseEntity {
   @ManyToOne(() => Task, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn()
   epic: Task | null;
+
+  /**
+   * Set only for `type = SUBTASK` — the story/task/bug it breaks down. `CASCADE` (unlike
+   * `epicId`'s `SET NULL`): a sub-task only makes sense attached to its parent, so deleting
+   * the parent deletes its sub-tasks too, instead of leaving them orphaned.
+   */
+  @Index()
+  @Column('uuid', { nullable: true })
+  parentId: string | null;
+
+  @ManyToOne(() => Task, { nullable: true, onDelete: 'CASCADE' })
+  @JoinColumn()
+  parent: Task | null;
 }

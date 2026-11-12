@@ -360,6 +360,57 @@ describe('Task Tracker (e2e)', () => {
     expect(allBoardKeys).not.toContain(epic.body.key);
   });
 
+  it('sub-tasks need a parent, cannot nest, cannot have their own epic/sprint, and never show up on the board', async () => {
+    const story = await as('pm').post(`/api/projects/${projectId}/tasks`).send({ title: 'Checkout flow' }).expect(201);
+
+    await as('pm').post(`/api/projects/${projectId}/tasks`).send({ title: 'Orphan sub-task', type: 'SUBTASK' }).expect(400);
+    await as('pm')
+      .post(`/api/projects/${projectId}/tasks`)
+      .send({ title: 'Not flagged as SUBTASK', parentId: story.body.id })
+      .expect(400);
+
+    const sub = await as('pm')
+      .post(`/api/projects/${projectId}/tasks`)
+      .send({ title: 'Wire up payment API', type: 'SUBTASK', parentId: story.body.id })
+      .expect(201);
+    expect(sub.body.parent.id).toBe(story.body.id);
+
+    // Can't nest: a sub-task can't be the parent of another sub-task, nor belong to an epic.
+    await as('pm')
+      .post(`/api/projects/${projectId}/tasks`)
+      .send({ title: 'Nested', type: 'SUBTASK', parentId: sub.body.id })
+      .expect(400);
+    const epic = await as('pm').post(`/api/projects/${projectId}/tasks`).send({ title: 'An epic', type: 'EPIC' }).expect(201);
+    await as('pm')
+      .post(`/api/projects/${projectId}/tasks`)
+      .send({ title: 'Sub of epic', type: 'SUBTASK', parentId: epic.body.id })
+      .expect(400);
+    await as('pm')
+      .post(`/api/projects/${projectId}/tasks`)
+      .send({ title: 'Sub with its own epic', type: 'SUBTASK', parentId: story.body.id, epicId: epic.body.id })
+      .expect(400);
+
+    // Can't be scheduled on its own: no sprint, neither at creation nor by moving it later.
+    const sprints = await as('pm').get(`/api/projects/${projectId}/sprints`).expect(200);
+    await as('pm')
+      .post(`/api/projects/${projectId}/tasks`)
+      .send({ title: 'Sub in a sprint', type: 'SUBTASK', parentId: story.body.id, sprintId: sprints.body[0].id })
+      .expect(400);
+    await as('pm').put(`/api/tasks/${sub.body.key}/sprint`).send({ sprintId: sprints.body[0].id }).expect(400);
+
+    // Fetched the same way epic children are: GET .../tasks?parentId=<id>.
+    const children = await as('pm').get(`/api/projects/${projectId}/tasks`).query({ parentId: story.body.id }).expect(200);
+    expect(children.body.items.map((t: any) => t.key)).toEqual([sub.body.key]);
+
+    const board = await as('pm').get(`/api/projects/${projectId}/board`).expect(200);
+    const allBoardKeys = board.body.columns.flatMap((c: any) => c.tasks.map((t: any) => t.key));
+    expect(allBoardKeys).not.toContain(sub.body.key);
+
+    // Deleting the parent takes its sub-tasks with it (CASCADE, unlike epicId's SET NULL).
+    await as('pm').delete(`/api/tasks/${story.body.key}`).expect(204);
+    await as('pm').get(`/api/tasks/${sub.body.key}`).expect(404);
+  });
+
   it('records task activity (who changed what) and exposes it per-task and system-wide for admins', async () => {
     const task = await as('pm').post(`/api/projects/${projectId}/tasks`).send({ title: 'Track me' }).expect(201);
     const key = task.body.key;

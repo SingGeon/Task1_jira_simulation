@@ -54,7 +54,7 @@ export function categoryPillClass(category: string): string {
   );
 }
 
-const TYPE_ICON: Record<string, string> = { EPIC: '▲', STORY: '◆', TASK: '▣', BUG: '●' };
+const TYPE_ICON: Record<string, string> = { EPIC: '▲', STORY: '◆', TASK: '▣', BUG: '●', SUBTASK: '☑' };
 export function typeIcon(t: string): string {
   return TYPE_ICON[t] ?? '▣';
 }
