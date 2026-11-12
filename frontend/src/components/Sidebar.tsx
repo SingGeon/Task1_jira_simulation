@@ -1,21 +1,51 @@
 import { useEffect, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { onAccessChanged } from '../lib/events';
 import { hueFromKey } from '../lib/format';
-import type { Project } from '../lib/types';
+import { InviteStatus, type Invite, type JoinRequest, type Project } from '../lib/types';
+
+/** How often to re-check for new invites/requests while the app is open (no push channel for these). */
+const INBOX_POLL_MS = 20_000;
 
 export function Sidebar() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [inboxCount, setInboxCount] = useState(0);
 
   const load = () => {
     api.get<Project[]>('/projects').then(setProjects).catch(() => setProjects([]));
   };
 
-  useEffect(load, []);
+  // Accepting an invite (or a join request getting approved) adds a project you didn't have
+  // before — re-fetch the project list live instead of waiting for a manual reload.
+  useEffect(() => {
+    load();
+    return onAccessChanged(load);
+  }, []);
+
+  useEffect(() => {
+    const loadInbox = () => {
+      Promise.all([
+        api.get<Invite[]>('/invites/mine').catch(() => []),
+        api.get<JoinRequest[]>('/join-requests').catch(() => []),
+      ]).then(([invites, decidable]) => {
+        const pendingInvites = invites.filter((i) => i.status === InviteStatus.PENDING).length;
+        setInboxCount(pendingInvites + decidable.length);
+      });
+    };
+    loadInbox();
+    const id = setInterval(loadInbox, INBOX_POLL_MS);
+    const offAccessChanged = onAccessChanged(loadInbox);
+    return () => {
+      clearInterval(id);
+      offAccessChanged();
+    };
+  }, [location.pathname]);
 
   const removeProject = (p: Project) => {
     if (!confirm(`Ștergi definitiv proiectul "${p.name}" (${p.key})? Toate task-urile lui se pierd. Nu se poate anula.`)) return;
@@ -101,7 +131,8 @@ export function Sidebar() {
             filtrează — vezi §13 din ARHITECTURA.md), oricine altcineva vede o listă goală. */}
         <NavLink to="/admin/join-requests" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`} style={{ marginTop: 2 }}>
           <span style={{ width: 24, textAlign: 'center' }}>✉</span>
-          <span>Cereri</span>
+          <span style={{ flex: 1 }}>Cereri</span>
+          {inboxCount > 0 && <span className="sidebar-badge">{inboxCount > 9 ? '9+' : inboxCount}</span>}
         </NavLink>
 
         {isAdmin && (

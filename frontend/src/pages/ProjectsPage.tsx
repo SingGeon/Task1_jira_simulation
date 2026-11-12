@@ -4,11 +4,7 @@ import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import {
   BoardType,
-  InviteStatus,
-  JoinRequestStatus,
   ProjectManagement,
-  type Invite,
-  type JoinRequest,
   type Project,
   type ProjectSummary,
   type PublicConfig,
@@ -18,30 +14,14 @@ import {
 import { Spinner, ErrorBanner, EmptyState } from '../components/Feedback';
 import { Modal } from '../components/Modal';
 import { UserPicker } from '../components/UserPicker';
-import { formatDateTime } from '../lib/format';
-
-const REQUEST_STATUS_LABEL: Record<JoinRequestStatus, string> = {
-  [JoinRequestStatus.PENDING]: 'În așteptare',
-  [JoinRequestStatus.APPROVED]: 'Aprobată',
-  [JoinRequestStatus.REJECTED]: 'Respinsă',
-};
-
-const REQUEST_STATUS_PILL: Record<JoinRequestStatus, string> = {
-  [JoinRequestStatus.PENDING]: 'pill pill-todo',
-  [JoinRequestStatus.APPROVED]: 'pill pill-done',
-  [JoinRequestStatus.REJECTED]: 'pill pill-critical',
-};
 
 export function ProjectsPage() {
   const { isAdmin } = useAuth();
   const [projects, setProjects] = useState<Project[] | null>(null);
-  const [myRequests, setMyRequests] = useState<JoinRequest[] | null>(null);
-  const [myInvites, setMyInvites] = useState<Invite[] | null>(null);
   const [publicConfig, setPublicConfig] = useState<PublicConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [showRequest, setShowRequest] = useState(false);
-  const [busyInvite, setBusyInvite] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const load = () => {
@@ -49,16 +29,6 @@ export function ProjectsPage() {
       .get<Project[]>('/projects')
       .then(setProjects)
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Nu am putut încărca proiectele'));
-    if (!isAdmin) {
-      api
-        .get<JoinRequest[]>('/join-requests/mine')
-        .then(setMyRequests)
-        .catch(() => setMyRequests([]));
-    }
-    api
-      .get<Invite[]>('/invites/mine')
-      .then(setMyInvites)
-      .catch(() => setMyInvites([]));
   };
 
   useEffect(load, []);
@@ -66,20 +36,7 @@ export function ProjectsPage() {
     api.get<PublicConfig>('/config/public').then(setPublicConfig);
   }, []);
 
-  const respondInvite = async (invite: Invite, action: 'accept' | 'decline') => {
-    setBusyInvite(invite.id);
-    try {
-      await api.post(`/invites/${invite.id}/${action}`);
-      load();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Acțiunea a eșuat');
-    } finally {
-      setBusyInvite(null);
-    }
-  };
-
   const canCreate = isAdmin || !!publicConfig?.teamProjectsEnabled;
-  const pendingInvites = (myInvites ?? []).filter((i) => i.status === InviteStatus.PENDING);
 
   return (
     <div style={{ maxWidth: 920, margin: '0 auto', padding: '28px 20px' }}>
@@ -104,68 +61,11 @@ export function ProjectsPage() {
 
       {error && <ErrorBanner message={error} />}
       {!projects && !error && <Spinner />}
-      {projects && projects.length === 0 && pendingInvites.length === 0 && (
+      {projects && projects.length === 0 && (
         <EmptyState
           title="Niciun proiect încă"
           hint={canCreate ? 'Creează primul proiect ca să începi.' : 'Solicită acces la un proiect existent sau așteaptă să fii adăugat.'}
         />
-      )}
-
-      {pendingInvites.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <h3 style={{ marginBottom: 8 }}>INVITAȚIILE TALE</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {pendingInvites.map((inv) => (
-              <div key={inv.id} className="card" style={{ padding: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
-                <p style={{ fontSize: 13, flex: 1 }}>
-                  <strong>{inv.invitedBy.fullName}</strong> te-a invitat în{' '}
-                  <span className="mono" style={{ fontWeight: 600 }}>
-                    {inv.project.key}
-                  </span>{' '}
-                  ({inv.project.name}) cu rolul <strong>{inv.role.name}</strong>
-                </p>
-                <button className="btn" disabled={busyInvite === inv.id} onClick={() => respondInvite(inv, 'decline')}>
-                  Refuză
-                </button>
-                <button className="btn btn-primary" disabled={busyInvite === inv.id} onClick={() => respondInvite(inv, 'accept')}>
-                  Acceptă
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {!isAdmin && myRequests && myRequests.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <h3 style={{ marginBottom: 8 }}>CERERILE TALE</h3>
-          <div className="card scroll-x">
-            <table>
-              <thead>
-                <tr>
-                  <th>Proiect</th>
-                  <th>Rol cerut</th>
-                  <th>Status</th>
-                  <th>Trimisă</th>
-                </tr>
-              </thead>
-              <tbody>
-                {myRequests.map((r) => (
-                  <tr key={r.id}>
-                    <td>
-                      {r.project.key} · {r.project.name}
-                    </td>
-                    <td>{r.role.name}</td>
-                    <td>
-                      <span className={REQUEST_STATUS_PILL[r.status]}>{REQUEST_STATUS_LABEL[r.status]}</span>
-                    </td>
-                    <td style={{ fontSize: 12, color: 'var(--muted)' }}>{formatDateTime(r.createdAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
       )}
 
       {projects && projects.length > 0 && (
