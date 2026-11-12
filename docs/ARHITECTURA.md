@@ -356,6 +356,16 @@ Backend-ul inițial nu avea interfață — doar API + Swagger. Am construit un 
 > pe loc cu eroare — mecanismul de revert exista deja, doar că majoritatea cardurilor nu ajungeau
 > niciodată până acolo.
 
+> **Notă (bug găsit la verificare): clic în afara drawer-ului de task nu îl închidea.** `Drawer.tsx`
+> avea un backdrop semi-transparent ca `<div>` SEPARAT, suprapus peste containerul care purta
+> handler-ul de închidere; acela verifica `e.target === e.currentTarget` ca să nu se închidă la clic
+> pe conținutul din interior — dar orice clic vizibil pe fundalul întunecat lovea de fapt backdrop-ul
+> (alt element), nu containerul însuși, deci condiția nu era niciodată adevărată și `onClose()` nu se
+> declanșa — utilizatorul rămânea „blocat” în task, obligat să apese „✕”. Fix: handler-ul s-a mutat
+> direct pe backdrop (clic pe el oricând închide; clic pe cardul din interior nu-l atinge, fiind
+> element frate, nu descendent, deci nu se propagă prin el). Adăugat și `Escape` pentru închidere,
+> ca la `Modal.tsx` (care nu avea acest bug — fundalul lui e pe același element cu handler-ul).
+
 > **Notă (schimbare ulterioară): navigare din bară laterală, stil Jira, în loc de tab-uri sus.**
 > Inițial, proiectele erau doar o pagină (`/projects`) la care te întorceai ca să schimbi proiectul.
 > Cerut explicit: o bară fixă în stânga (`components/Sidebar.tsx`) cu toate proiectele tale, fiecare
@@ -725,3 +735,4 @@ sus, în secțiunea corespunzătoare):
 | Workflow implicit complet deschis la crearea unui proiect (§6.4): fiecare status → fiecare alt status, nu doar un lanț restrâns | Cerut explicit — „orice workflow trebuie să înceapă cu toate accesele de mutare, să-l poți muta cum vrei și de unde vrei”; PM-ul restrânge ulterior din tab-ul Workflow, funcționalitate care exista deja. |
 | Fix: niciun task nu era draggable pe Board pentru rolul Developer (§11) | Semnalat direct de utilizator testând ca Developer. `canDrag` folosea `can(TASK_TRANSITION)` fără task, care nu vede grant-urile condiționate (`scope: ASSIGNEE`) — exact scope-ul rolului Developer. Calculat acum per card: `can(...) \|\| task.assigneeId === eu`. |
 | Invitațiile tale + cererile tale consolidate pe pagina „Cereri” (§15), cu notificare (contor roșu în sidebar) și update live fără refresh la accept | Cerut explicit; erau împrăștiate pe `/projects`, fără nicio indicație că ai ceva de răspuns. `lib/events.ts` (`CustomEvent` pe `window`) sincronizează sidebar-ul (listă proiecte + contor) instant cu acțiunea proprie a userului. |
+| Fix: clic în afara drawer-ului de task nu îl închidea (§11) | Semnalat direct de utilizator. Backdrop-ul era un `<div>` separat peste containerul cu handler-ul `onClose`, deci `e.target === e.currentTarget` nu era niciodată adevărat la clic pe fundal. Handler-ul mutat direct pe backdrop; adăugat și `Escape`. |
