@@ -404,6 +404,17 @@ Backend-ul inițial nu avea interfață — doar API + Swagger. Am construit un 
 > butoanele chiar și când acea listă venea populată. Eliminat complet — `transitions.length > 0` e
 > deja precis (vine din backend, ia în calcul statusul curent și scope-ul exact al rolului), nu mai
 > are nevoie de o aproximare suplimentară pe frontend ca la `canUpdate`/`canDrag`.
+>
+> **Un al treilea gate din aceeași secțiune avea o problemă diferită, nu o aproximare lipsă ci una
+> greșit aleasă:** câmpul „+ Sub-task nou” verifica `canCreate={canUpdate}`, deci moștenea aceeași
+> restricție „doar pe task-urile tale” — deși `task.create` **nu e deloc o permisiune scoped la
+> task** (nu apare în `TASK_SCOPED_PERMISSIONS`, §6.2; un rol nu poate avea `task.create` condiționat,
+> validarea din `RolesService.normalizeGrants` respinge încercarea). E exact aceeași permisiune
+> folosită deja, direct, la butonul „+ Task” de pe Board — un Developer poate crea orice task nou în
+> proiect, nu doar pe cele proprii, deci adăugarea unui sub-task la un task **oricui** ar trebui să
+> funcționeze la fel. Fix: `canCreate={can(Permission.TASK_CREATE)}`, nicio aproximare necesară
+> (spre deosebire de `canUpdate`/`canTransition`, `task.create` e corect verificabil fără context de
+> task, fiindcă nu există grant condiționat de el).
 
 > **Notă (schimbare ulterioară): simbol vizual per tip de task.** Pe board/backlog, singura diferență
 > vizibilă dintre un story, un task, un bug și un sub-task era un caracter unicode mic și monocrom
@@ -829,3 +840,4 @@ sus, în secțiunea corespunzătoare):
 | Oricine își poate da singur assignee pe un task (§6.2): `TasksService.assign()` sare peste `task.assign` când ținta ești tu însuți, bazându-se doar pe `task.assignable` | Cerut explicit. Scope-ul `ASSIGNEE` al rolurilor IC cerea să fii *deja* assignee ca să devii assignee — imposibil pentru un task liber. Prima variantă (cerere → aprobare de PM, simetrică cu §13) a fost înlocuită la cerere ulterioară cu auto-asignare directă, fără pas de aprobare; modulul de cereri a fost eliminat complet. |
 | Selector de proiect pe pagina „Jurnal” (§18), legat de `?project=<id>` în URL | Cerut explicit. `GET /activity` suporta deja `projectId` ca filtru de la început — doar pagina nu expunea nicio cale să-l trimiți, arăta mereu toate proiectele amestecate; niciun cod nou pe backend. |
 | Fix: câmpurile unui task (tip, prioritate, story points, descriere) apăreau needitabile în drawer pentru assignee/reporter cu grant-uri condiționate (§11) | Semnalat direct de utilizator. `canUpdate` folosea `can(TASK_UPDATE)` fără task, exact același bug ca la draggability pe Board. Fix: `|| task.assigneeId === eu || task.reporterId === eu`. A scos la iveală și un al doilea gate (`canTransition`) care bloca inutil butoanele „→ Status”, deși lista de tranziții era deja corectă; eliminat complet. |
+| Fix: butonul „+ Sub-task nou” era blocat de aceeași restricție ca `canUpdate` (§11) | Semnalat direct de utilizator, pe urmele fix-ului de mai sus. Folosea `canCreate={canUpdate}`, deși `task.create` nu e deloc o permisiune scoped la task (un Developer poate crea orice task nou în proiect, nu doar pe ale lui). Fix: `canCreate={can(TASK_CREATE)}` direct, aceeași permisiune ca la „+ Task” de pe Board — fără nevoie de aproximare. |
