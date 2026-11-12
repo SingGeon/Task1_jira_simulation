@@ -500,12 +500,31 @@ function EditableTitle({ value, disabled, saving, onSave }: { value: string; dis
 
 function EditableDescription({ value, disabled, onSave }: { value: string; disabled: boolean; onSave: (v: string) => void }) {
   const [draft, setDraft] = useState(value);
+  const [height, setHeight] = useState<number>();
+  const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => setDraft(value), [value]);
+  // Same auto-grow as the title field above: fixed rows={5} clipped long descriptions, requiring
+  // a scroll inside a small box to read the rest. Measuring scrollHeight and writing it back as
+  // an explicit height (kept in state, not just on the DOM) lets it grow with the content and
+  // survives re-renders from the drawer's other async data (comments/activity/sub-tasks).
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    setHeight(el.scrollHeight);
+  }, [draft]);
   return (
     <div className="field">
       <label>Descriere</label>
       <textarea
+        ref={ref}
         className="textarea"
+        style={{
+          flexShrink: 0, // same squeeze risk as the title field, inside this overflowing column
+          resize: 'none',
+          overflow: 'hidden',
+          height: height ? `${height}px` : undefined,
+        }}
         rows={5}
         value={draft}
         disabled={disabled}
