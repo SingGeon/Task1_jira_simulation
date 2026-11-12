@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useProjectAccess } from '../lib/projectAccess';
@@ -11,6 +12,7 @@ import {
   type Activity,
   type Comment,
   type Epic,
+  type Paginated,
   type Sprint,
   type Task,
   type User,
@@ -35,12 +37,14 @@ export function TaskDrawer({
 }) {
   const { can, project } = useProjectAccess();
   const { user: me } = useAuth();
+  const [, setParams] = useSearchParams();
   const [task, setTask] = useState<Task | null>(null);
   const [transitions, setTransitions] = useState<WorkflowStatus[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [activity, setActivity] = useState<Activity[]>([]);
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [epics, setEpics] = useState<Epic[]>([]);
+  const [subtasks, setSubtasks] = useState<Task[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [savingField, setSavingField] = useState<string | null>(null);
 
@@ -68,6 +72,18 @@ export function TaskDrawer({
     }
     api.get<Epic[]>(`/projects/${project.id}/epics`).then(setEpics).catch(() => {});
   }, [project.id, project.boardType]);
+
+  const canHaveSubtasks = task?.type !== TaskType.EPIC && task?.type !== TaskType.SUBTASK;
+
+  const refreshSubtasks = useCallback(() => {
+    if (!task || !canHaveSubtasks) return;
+    api
+      .get<Paginated<Task>>(`/projects/${project.id}/tasks`, { parentId: task.id, limit: 100 })
+      .then((r) => setSubtasks(r.items))
+      .catch(() => {});
+  }, [task?.id, canHaveSubtasks, project.id]);
+
+  useEffect(refreshSubtasks, [refreshSubtasks]);
 
   const refreshActivity = () => api.get<Activity[]>(`/tasks/${idOrKey}/activity`).then(setActivity).catch(() => {});
 
@@ -151,7 +167,8 @@ export function TaskDrawer({
   const canTransition = task ? can(Permission.TASK_TRANSITION) : false;
   const canDelete = task ? can(Permission.TASK_DELETE) : false;
   const isEpic = task?.type === TaskType.EPIC;
-  const canMoveSprint = can(Permission.SPRINT_MANAGE) && project.boardType === BoardType.SCRUM && !isEpic;
+  const isSubtask = task?.type === TaskType.SUBTASK;
+  const canMoveSprint = can(Permission.SPRINT_MANAGE) && project.boardType === BoardType.SCRUM && !isEpic && !isSubtask;
   const canComment = can(Permission.COMMENT_CREATE);
   const canManageComments = can(Permission.COMMENT_MANAGE);
 
@@ -179,6 +196,16 @@ export function TaskDrawer({
             </span>
             <span className={categoryPillClass(task.status.category)}>{task.status.name}</span>
             {task.epic && <EpicChip epic={task.epic} />}
+            {task.parent && (
+              <button
+                className="mono"
+                style={{ all: 'unset', cursor: 'pointer' }}
+                onClick={() => setParams({ task: task.parent!.key })}
+                title="Deschide task-ul părinte"
+              >
+                <EpicChip epic={task.parent} />
+              </button>
+            )}
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
               {canDelete && (
                 <button className="btn btn-danger" style={{ padding: '4px 10px' }} onClick={remove}>
@@ -283,7 +310,7 @@ export function TaskDrawer({
               </div>
             )}
 
-            {!isEpic && epics.length > 0 && (
+            {!isEpic && !isSubtask && epics.length > 0 && (
               <div className="field">
                 <label>Epic</label>
                 <select
@@ -302,6 +329,19 @@ export function TaskDrawer({
               </div>
             )}
 
+            {canHaveSubtasks && (
+              <SubtasksSection
+                subtasks={subtasks}
+                canCreate={canUpdate}
+                onOpen={(key) => setParams({ task: key })}
+                onCreate={async (title) => {
+                  await api.post(`/projects/${project.id}/tasks`, { title, type: TaskType.SUBTASK, parentId: task.id });
+                  refreshSubtasks();
+                  onChanged();
+                }}
+              />
+            )}
+
             <EditableLabels
               value={task.labels}
               disabled={!canUpdate}
@@ -311,6 +351,7 @@ export function TaskDrawer({
             <div className="field">
               <label>Story points</label>
               <input
+                key={task.id}
                 className="input"
                 type="number"
                 min={0}
@@ -427,6 +468,96 @@ function EditableLabels({ value, disabled, onSave }: { value: string[]; disabled
           if (labels.join(',') !== value.join(',')) onSave(labels);
         }}
       />
+    </div>
+  );
+}
+
+function SubtasksSection({
+  subtasks,
+  canCreate,
+  onOpen,
+  onCreate,
+}: {
+  subtasks: Task[];
+  canCreate: boolean;
+  onOpen: (key: string) => void;
+  onCreate: (title: string) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const done = subtasks.filter((s) => s.status.category === 'DONE').length;
+
+  const submit = async () => {
+    if (draft.trim().length < 3) return;
+    setBusy(true);
+    try {
+      await onCreate(draft.trim());
+      setDraft('');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="field">
+      <label>
+        Sub-task-uri {subtasks.length > 0 && <span style={{ color: 'var(--muted)', fontWeight: 400 }}>({done}/{subtasks.length})</span>}
+      </label>
+      {subtasks.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1, border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+          {subtasks.map((s, i) => (
+            <button
+              key={s.id}
+              onClick={() => onOpen(s.key)}
+              style={{
+                all: 'unset',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '7px 10px',
+                background: 'var(--surface)',
+                borderBottom: i < subtasks.length - 1 ? '1px solid var(--border)' : 'none',
+              }}
+            >
+              <span className="mono" style={{ fontSize: 11, color: 'var(--muted)' }}>
+                {typeIcon(s.type)} {s.key}
+              </span>
+              <span
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  fontSize: 13,
+                  textDecoration: s.status.category === 'DONE' ? 'line-through' : 'none',
+                  color: s.status.category === 'DONE' ? 'var(--muted)' : 'var(--ink)',
+                }}
+              >
+                {s.title}
+              </span>
+              <span className={categoryPillClass(s.status.category)}>{s.status.name}</span>
+              <Avatar name={s.assignee?.fullName} size={22} unassigned={!s.assignee} />
+            </button>
+          ))}
+        </div>
+      )}
+      {canCreate && (
+        <div style={{ display: 'flex', gap: 6, marginTop: subtasks.length > 0 ? 8 : 0 }}>
+          <input
+            className="input"
+            placeholder="+ Sub-task nou"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && submit()}
+          />
+          <button className="btn" disabled={busy || draft.trim().length < 3} onClick={submit}>
+            Adaugă
+          </button>
+        </div>
+      )}
+      {subtasks.length === 0 && !canCreate && <p style={{ fontSize: 13, color: 'var(--muted)' }}>Niciun sub-task.</p>}
     </div>
   );
 }
