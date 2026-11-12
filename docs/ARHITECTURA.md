@@ -258,9 +258,19 @@ Request ─► JwtAuthGuard (global) ─► AdminGuard (@AdminOnly) ─► Valid
   ce îi lipsește, de exemplu:
   `Role 'QA' is not allowed to perform 'task.transition' on this task (allowed only when: the task is assigned to you AND the task is in status IN_QA)`.
 - **Permisiunea și workflow-ul sunt două verificări separate.** Permisiunea decide *cine* poate muta
-  task-ul, iar workflow-ul decide *unde* poate fi mutat (`TODO → DONE` e respins pentru toți,
-  inclusiv pentru PM, cu lista de tranziții permise). Pentru un UI, `GET /tasks/:key/transitions`
-  returnează doar mutările pe care utilizatorul curent le poate face efectiv (ca butoanele din Jira).
+  task-ul, iar workflow-ul decide *unde* poate fi mutat — dacă o tranziție nu există în graful de
+  tranziții al proiectului, e respinsă cu 400 pentru toți, inclusiv pentru PM, cu lista de tranziții
+  permise din acel status. Pentru un UI, `GET /tasks/:key/transitions` returnează doar mutările pe
+  care utilizatorul curent le poate face efectiv (ca butoanele din Jira).
+  > **Notă (schimbare ulterioară): workflow-ul implicit pornește complet deschis.** Inițial
+  > `DEFAULT_TRANSITIONS` era un lanț restrâns (`TODO → IN_PROGRESS → IN_REVIEW → IN_QA → DONE`,
+  > plus câteva mutări înapoi) — un `TODO → DONE` direct era respins chiar și pentru un proiect nou,
+  > nemodificat încă de nimeni. Cerut explicit: un proiect nou trebuie să pornească **cu toate
+  > tranzițiile posibile** între toate statusurile („să-l poți muta cum vrei și de unde vrei”), iar
+  > PM-ul își restrânge fluxul ulterior, dacă vrea unul mai strict, din tab-ul Workflow (ștergere de
+  > tranziții, deja exista acolo — §11). `DEFAULT_TRANSITIONS` (`src/workflow/default-workflow.ts`)
+  > e acum generat automat ca graf complet (fiecare status → fiecare alt status), nu mai listat de
+  > mână — nu mai poate scăpa o pereche la adăugarea unui status nou implicit.
 - **Endpoint-uri separate pentru acțiuni cu permisiuni diferite:** `PATCH /tasks/:id` (câmpuri),
   `POST /tasks/:id/transitions` (status), `PUT /tasks/:id/assignee`, `PUT /tasks/:id/sprint`.
   Dacă trimiți `status` prin `PATCH` primești 400. Fiecare acțiune are o singură permisiune, deci
@@ -332,6 +342,19 @@ Backend-ul inițial nu avea interfață — doar API + Swagger. Am construit un 
 | Un singur context de acces per proiect (`ProjectAccessProvider`) care expune `can(permission)` | Fiecare pagină (Board, Backlog, Sprinturi, Membri, Workflow) are nevoie de aceleași verificări de permisiuni ca să arate/ascundă butoane — centralizat într-un singur loc, la fel ca `ProjectAccess` pe backend. |
 | Detaliile unui task se deschid într-un **drawer** (panou lateral), nu pe o pagină separată | Păstrează contextul board-ului/backlog-ului vizibil; e controlat prin query string (`?task=WEB-12`), deci e și linkuibil. |
 | Drag-and-drop pe Board (HTML5 nativ, fără librărie) | La drop se apelează tranziția de status existentă; dacă workflow-ul n-o permite, cardul revine pe loc cu eroare. Nu am adăugat o librărie de DnD pentru o singură interacțiune. |
+
+> **Notă (bug găsit la verificare): niciun card nu era draggable pentru Developer.** `canDrag` era
+> calculat o singură dată pentru tot board-ul cu `can(Permission.TASK_TRANSITION)` — care verifică
+> doar grant-uri **necondiționate** (fără task, un grant cu `scope: ASSIGNEE` ca al Developer-ului nu
+> se potrivește niciodată, exact comportamentul din §6.1 „fără task, doar grant-urile necondiționate
+> se aplică”). Rezultatul: `canDrag` era `false` pentru orice rol ale cărui tranziții depind de task
+> (Developer, QA), deși butoanele „→ Status” din drawer funcționau corect (acelea cer tranzițiile
+> reale per-task de la backend, `GET /tasks/:id/transitions`). Fix: draggability calculată **per
+> card** — `can(TASK_TRANSITION) || task.assigneeId === eu` — nu încearcă să reproducă exact scope-ul
+> din grant (ex. restricția de status a QA pe `IN_QA`), ci doar aproximează „merită încercat”; dacă
+> backend-ul tot respinge mutarea (ex. QA pe un task care nu e în `IN_QA`), UI-ul deja revine cardul
+> pe loc cu eroare — mecanismul de revert exista deja, doar că majoritatea cardurilor nu ajungeau
+> niciodată până acolo.
 
 > **Notă (schimbare ulterioară): navigare din bară laterală, stil Jira, în loc de tab-uri sus.**
 > Inițial, proiectele erau doar o pagină (`/projects`) la care te întorceai ca să schimbi proiectul.
@@ -676,3 +699,5 @@ sus, în secțiunea corespunzătoare):
 | PM-ul proiectului poate aproba/respinge cereri de acces (§13), nu doar admin | Cerut explicit, de pe lista „ce aș adăuga”; linkul „Cereri” din sidebar e acum vizibil pentru toată lumea, filtrat de backend după `project.members.manage`. |
 | Sub-task-uri (§17): `Task` cu `type=SUBTASK` + `parentId` (CASCADE), secțiune „Sub-task-uri” în drawer, excluse din board/backlog | Cerut explicit, de pe lista „ce aș adăuga”; a scos la iveală un bug de `defaultValue` necontrolat pe câmpul Story points la schimbarea task-ului afișat în același drawer (fixat cu `key={task.id}`). |
 | Fix: titlul unui task era tăiat/ilizibil în `TaskDrawer` | Semnalat cu un screenshot. Cauza reală: textarea-ul titlului e copil direct al coloanei flex (scrollabile) din drawer; `minHeight: 0` de pe el (necesar ca să poată fi mai mic decât `min-height: 72px` al clasei `.textarea`, comună cu descrierea) elimină și protecția normală a flexbox-ului împotriva micșorării sub înălțimea conținutului, iar coloana oricum depășește spațiul vizibil (e scrollabilă) — rezultat: browserul comprima acel câmp aproape la zero, indiferent de `rows` sau `height` explicit. Fix cu două părți: `flexShrink: 0` (anulează micșorarea), plus auto-creștere pe înălțime măsurată cu `useLayoutEffect`/`scrollHeight` ținută în state React (nu scrisă direct pe DOM) — ca să supraviețuiască re-randărilor ulterioare din drawer (comentarii/istoric/sub-task-uri încărcate async), care altfel ar fi resetat orice înălțime scrisă doar imperativ. |
+| Workflow implicit complet deschis la crearea unui proiect (§6.4): fiecare status → fiecare alt status, nu doar un lanț restrâns | Cerut explicit — „orice workflow trebuie să înceapă cu toate accesele de mutare, să-l poți muta cum vrei și de unde vrei”; PM-ul restrânge ulterior din tab-ul Workflow, funcționalitate care exista deja. |
+| Fix: niciun task nu era draggable pe Board pentru rolul Developer (§11) | Semnalat direct de utilizator testând ca Developer. `canDrag` folosea `can(TASK_TRANSITION)` fără task, care nu vede grant-urile condiționate (`scope: ASSIGNEE`) — exact scope-ul rolului Developer. Calculat acum per card: `can(...) \|\| task.assigneeId === eu`. |

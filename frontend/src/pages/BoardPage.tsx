@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { useProjectAccess } from '../lib/projectAccess';
 import { useProjectRealtime } from '../lib/realtime';
-import { BoardType, Permission, type Board, type BoardColumn } from '../lib/types';
+import { BoardType, Permission, type Board, type BoardColumn, type Task } from '../lib/types';
 import { Spinner, ErrorBanner, EmptyState } from '../components/Feedback';
 import { TaskCard } from '../components/TaskCard';
 import { TaskDrawer } from '../components/TaskDrawer';
@@ -12,6 +13,7 @@ import { categoryPillClass } from '../lib/format';
 
 export function BoardPage() {
   const { project, can } = useProjectAccess();
+  const { user: me } = useAuth();
   const [board, setBoard] = useState<Board | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -19,7 +21,11 @@ export function BoardPage() {
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [params, setParams] = useSearchParams();
   const openTask = params.get('task');
-  const canDrag = can(Permission.TASK_TRANSITION);
+  // can(TASK_TRANSITION) only reflects an unconditional grant (no task context) — a role like
+  // Developer, whose grant is scoped to "assigned to me", would otherwise never be draggable at
+  // all. Treat "assigned to me" as drag-eligible too; the backend still enforces the real,
+  // possibly status-conditional, permission on drop (and the UI reverts cleanly if it rejects).
+  const canDragTask = (t: Task) => can(Permission.TASK_TRANSITION) || t.assigneeId === me?.id;
 
   const load = useCallback(() => {
     api
@@ -132,7 +138,7 @@ export function BoardPage() {
                     key={t.id}
                     task={t}
                     onOpen={() => setParams({ task: t.key })}
-                    draggable={canDrag}
+                    draggable={canDragTask(t)}
                     onDragStart={(e) => {
                       e.dataTransfer.effectAllowed = 'move';
                       setDraggingKey(t.key);

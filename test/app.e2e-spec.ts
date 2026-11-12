@@ -229,11 +229,19 @@ describe('Task Tracker (e2e)', () => {
     expect(available.body).toEqual([]);
   });
 
-  it('Developer moves own task through the workflow; illegal jumps are rejected', async () => {
+  it('a fresh project starts with every status able to move to every other; a PM can then restrict it, and that gets enforced', async () => {
+    // Default workflow is fully open: WEB-1 (TODO) can jump straight to any other status.
     const opts = await as('dev').get('/api/tasks/WEB-1/transitions').expect(200);
-    expect(opts.body.map((s: any) => s.key)).toEqual(['IN_PROGRESS']);
+    expect(opts.body.map((s: any) => s.key).sort()).toEqual(['DONE', 'IN_PROGRESS', 'IN_QA', 'IN_REVIEW']);
+
+    // PM narrows it down: remove the (default) TODO -> DONE transition.
+    const wf = await as('pm').get(`/api/projects/${projectId}/workflow`).expect(200);
+    const todoToDone = wf.body.transitions.find((t: any) => t.from === 'TODO' && t.to === 'DONE');
+    await as('pm').delete(`/api/projects/${projectId}/workflow/transitions/${todoToDone.id}`).expect(204);
+
     const bad = await as('dev').post('/api/tasks/WEB-1/transitions').send({ status: 'DONE' }).expect(400);
-    expect(bad.body.message).toContain('Allowed: IN_PROGRESS');
+    expect(bad.body.message).toContain('does not allow');
+
     for (const s of ['IN_PROGRESS', 'IN_REVIEW', 'IN_QA']) {
       const r = await as('dev').post('/api/tasks/WEB-1/transitions').send({ status: s }).expect(200);
       expect(r.body.status.key).toBe(s);

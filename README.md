@@ -69,7 +69,7 @@ proiect, membri, regulile Developer/QA/PM, workflow, sprinturi, board Kanban, cr
 2. Utilizatorii se înregistrează (`POST /api/auth/register`) și nu au acces la nimic, până când:
    - **PM/admin** îi adaugă direct: `POST /api/projects/:id/members { userId, roleId }`, sau
    - **PM/admin** îi invită, iar ei acceptă/refuză: `POST /api/projects/:id/invites` → `POST /api/invites/:id/accept`, sau
-   - **ei cer** acces (sau alt rol, dacă sunt deja membri): `POST /api/join-requests`, iar admin aprobă/respinge.
+   - **ei cer** acces (sau alt rol, dacă sunt deja membri): `POST /api/join-requests`, iar admin sau PM-ul proiectului aprobă/respinge.
 3. Se creează task-uri (`WEB-1`, `WEB-2`, ...), se asignează și se mută prin workflow:
    `POST /api/tasks/WEB-1/transitions { status: "IN_PROGRESS" }`.
 4. PM planifică sprintul: `POST .../sprints`, `PUT /api/tasks/WEB-1/sprint`, `POST .../sprints/:id/start`.
