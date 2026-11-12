@@ -530,6 +530,22 @@ tbody tr:hover {
   font-size: 13px;
 }
 
+.sidebar-badge {
+  flex: none;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--danger);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 .project-swatch {
   display: inline-flex;
   align-items: center;

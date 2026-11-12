@@ -500,6 +500,29 @@ utilizatorul decide).
   userul X pentru rolul Y și o cerere a lui X pentru rolul Z — nu se blochează reciproc, fiindcă sunt
   două tabele diferite cu intenții diferite (oferă vs. cere).
 
+> **Notă (schimbare ulterioară): totul legat de acces s-a mutat pe o singură pagină, „Cereri”.**
+> Inițial invitațiile primite și cererile proprii trimise apăreau doar pe `/projects`, separat de
+> pagina de decizie a adminului/PM-ului (`/admin/join-requests`) — trei surse de adevăr pentru
+> „ce așteaptă răspunsul meu”, fiecare vizibilă doar dacă știai unde să te uiți. Cerut explicit:
+> toate trei (invitațiile tale, cererile tale, cererile de decis dacă ai `project.members.manage`
+> undeva) pe **aceeași pagină** `AdminJoinRequestsPage`. `ProjectsPage` a rămas doar pentru
+> răsfoit/creat proiecte.
+>
+> **Notificare + live update fără refresh.** Un contor roșu pe linkul „Cereri” din sidebar (numărul
+> de invitații în așteptare + cereri de decis) — altfel utilizatorul n-ar afla niciodată că are ceva
+> de răspuns decât dând din întâmplare peste pagină. Problema: invitațiile/cererile sunt
+> cross-proiect, deci canalul WebSocket existent (cameră `project:<id>`, §12) nu le poate acoperi —
+> nu există UN proiect de care să asculți. Soluție minimală, fără a extinde gateway-ul WebSocket cu
+> camere per-utilizator: contorul din `Sidebar` se reîmprospătează (a) la fiecare 20s (polling), (b)
+> la orice schimbare de rută, și (c) instant, prin un `CustomEvent` pe `window`
+> (`lib/events.ts` — `notifyAccessChanged()`/`onAccessChanged()`) pe care pagina „Cereri” îl emite
+> după ce userul acceptă un invite sau decide o cerere. **Lista de proiecte din sidebar ascultă
+> același eveniment** — de-asta, imediat ce accepți un invite, proiectul apare în sidebar fără
+> reload: nu e push real de pe server, ci reacție imediată în tab-ul curent la propria acțiune a
+> userului. (Dacă adminul aprobă cererea cuiva ALTCUIVA, persoana respectivă tot are nevoie să
+> navigheze sau să aștepte polling-ul de 20s în propriul ei tab — nu era cerut push cross-sesiune,
+> doar ca acțiunea proprie să se vadă instant.)
+
 ---
 
 ## 16. Epice
@@ -701,3 +724,4 @@ sus, în secțiunea corespunzătoare):
 | Fix: titlul unui task era tăiat/ilizibil în `TaskDrawer` | Semnalat cu un screenshot. Cauza reală: textarea-ul titlului e copil direct al coloanei flex (scrollabile) din drawer; `minHeight: 0` de pe el (necesar ca să poată fi mai mic decât `min-height: 72px` al clasei `.textarea`, comună cu descrierea) elimină și protecția normală a flexbox-ului împotriva micșorării sub înălțimea conținutului, iar coloana oricum depășește spațiul vizibil (e scrollabilă) — rezultat: browserul comprima acel câmp aproape la zero, indiferent de `rows` sau `height` explicit. Fix cu două părți: `flexShrink: 0` (anulează micșorarea), plus auto-creștere pe înălțime măsurată cu `useLayoutEffect`/`scrollHeight` ținută în state React (nu scrisă direct pe DOM) — ca să supraviețuiască re-randărilor ulterioare din drawer (comentarii/istoric/sub-task-uri încărcate async), care altfel ar fi resetat orice înălțime scrisă doar imperativ. |
 | Workflow implicit complet deschis la crearea unui proiect (§6.4): fiecare status → fiecare alt status, nu doar un lanț restrâns | Cerut explicit — „orice workflow trebuie să înceapă cu toate accesele de mutare, să-l poți muta cum vrei și de unde vrei”; PM-ul restrânge ulterior din tab-ul Workflow, funcționalitate care exista deja. |
 | Fix: niciun task nu era draggable pe Board pentru rolul Developer (§11) | Semnalat direct de utilizator testând ca Developer. `canDrag` folosea `can(TASK_TRANSITION)` fără task, care nu vede grant-urile condiționate (`scope: ASSIGNEE`) — exact scope-ul rolului Developer. Calculat acum per card: `can(...) \|\| task.assigneeId === eu`. |
+| Invitațiile tale + cererile tale consolidate pe pagina „Cereri” (§15), cu notificare (contor roșu în sidebar) și update live fără refresh la accept | Cerut explicit; erau împrăștiate pe `/projects`, fără nicio indicație că ai ceva de răspuns. `lib/events.ts` (`CustomEvent` pe `window`) sincronizează sidebar-ul (listă proiecte + contor) instant cu acțiunea proprie a userului. |
