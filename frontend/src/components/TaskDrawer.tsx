@@ -371,7 +371,7 @@ export function TaskDrawer({
             {canHaveSubtasks && (
               <SubtasksSection
                 subtasks={subtasks}
-                canCreate={canUpdate}
+                canCreate={can(Permission.TASK_CREATE)}
                 onOpen={(key) => setParams({ task: key })}
                 onCreate={async (title) => {
                   await api.post(`/projects/${project.id}/tasks`, { title, type: TaskType.SUBTASK, parentId: task.id });
