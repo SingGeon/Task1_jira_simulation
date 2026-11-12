@@ -128,7 +128,7 @@ export function Sidebar() {
         </NavLink>
         {/* Vizibil pentru toată lumea: un admin vede cererile din toate proiectele, un
             Project Manager doar pe cele din proiectele pe care le gestionează (backend-ul
-            filtrează — vezi §13 din ARHITECTURA.md), oricine altcineva vede o listă goală. */}
+            filtrează după 'project.members.manage'), oricine altcineva vede o listă goală. */}
         <NavLink to="/admin/join-requests" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`} style={{ marginTop: 2 }}>
           <span style={{ width: 24, textAlign: 'center' }}>✉</span>
           <span style={{ flex: 1 }}>Cereri</span>
